@@ -46,12 +46,30 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build:android
       - name: Signing key
+        id: key
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
         run: |
-          if [ -z "$KEYSTORE_B64" ]; then echo "::error::Add the KEYSTORE_B64 and KEYSTORE_PASSWORD repository secrets first (see README)."; exit 1; fi
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/deckops.jks"
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "has=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No signing secrets yet, so this run only builds a test APK. Add KEYSTORE_B64 and KEYSTORE_PASSWORD (see README) to publish releases."
+          else
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/deckops.jks"
+            echo "has=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build test APK (no signing key yet)
+        if: steps.key.outputs.has == 'false'
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - if: steps.key.outputs.has == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeckOps-test-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
       - name: Build signed APK
+        if: steps.key.outputs.has == 'true'
         working-directory: android
         env:
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -63,9 +81,12 @@ jobs:
             -Pandroid.injected.signing.key.alias=deckops \
             -Pandroid.injected.signing.key.password="$KS_PASS"
       - id: v
+        if: steps.key.outputs.has == 'true'
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-      - run: cp android/app/build/outputs/apk/release/app-release.apk DeckOps.apk
-      - uses: softprops/action-gh-release@v2
+      - if: steps.key.outputs.has == 'true'
+        run: cp android/app/build/outputs/apk/release/app-release.apk DeckOps.apk
+      - if: steps.key.outputs.has == 'true'
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.v.outputs.version }}
           name: Deck Ops ${{ steps.v.outputs.version }}
