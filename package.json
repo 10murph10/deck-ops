@@ -1,0 +1,25 @@
+{
+  "name": "deck-ops",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deck Ops: cyberdeck build tracker for Android and the web",
+  "scripts": {
+    "build:web": "esbuild src/cap-entry.js --bundle --format=iife --minify --outfile=www/cap.js && node scripts/copy-fonts.mjs",
+    "build:android": "npm run build:web && npx cap add android && node scripts/patch-android.mjs && npx capacitor-assets generate --android && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/camera": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@capacitor/local-notifications": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0",
+    "@fontsource-variable/martian-mono": "^5.0.0",
+    "@fontsource/vt323": "^5.0.0",
+    "esbuild": "^0.25.0"
+  }
+}

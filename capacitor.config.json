@@ -1,0 +1,16 @@
+{
+  "appId": "ca.murphsforge.deckops",
+  "appName": "Deck Ops",
+  "webDir": "www",
+  "backgroundColor": "#03140c",
+  "android": {
+    "backgroundColor": "#03140c",
+    "adjustMarginsForEdgeToEdge": "auto"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_deckops",
+      "iconColor": "#8BF5A5"
+    }
+  }
+}

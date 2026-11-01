@@ -1,0 +1,16 @@
+{
+  "name": "Deck Ops",
+  "short_name": "Deck Ops",
+  "description": "Cyberdeck build tracker: route, lessons, parts, field log.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#03140c",
+  "theme_color": "#03140c",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

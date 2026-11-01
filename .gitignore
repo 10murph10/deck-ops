@@ -1,0 +1,6 @@
+node_modules/
+android/
+www/cap.js
+www/fonts/*.woff2
+*.jks
+*.keystore
