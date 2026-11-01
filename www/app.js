@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -28,7 +28,7 @@ const hhmm = (h, m) => new Date(2000, 0, 1, h, m).toLocaleTimeString('en-CA', { 
 const NODE = {}; NODES.forEach((n, i) => { NODE[n.id] = Object.assign({ ord: i, needs: [], cmd: null, code: null, links: null }, n); });
 const TERM = {}; TERMS.forEach(t => { TERM[t.id] = t; });
 const BR = {}; BRANCHES.forEach((b, i) => { BR[b.id] = Object.assign({ ord: i }, b); });
-const VIEWS = [['ops', 'ops'], ['route', 'route'], ['skills', 'skills'], ['parts', 'parts'], ['log', 'log'], ['codex', 'codex']];
+const VIEWS = [['ops', 'Ops'], ['route', 'Route'], ['skills', 'Skills'], ['parts', 'Parts'], ['log', 'Log'], ['codex', 'Codex']];
 const STATUSES = ['wanted', 'ordered', 'arrived', 'installed'];
 const TAGS = ['Linux', 'Electronics', 'CAD', 'Radio', 'Signal', 'Case', 'Other'];
 const BR_TAG = { linux: 'Linux', elec: 'Electronics', cad: 'CAD', radio: 'Radio' };
@@ -53,7 +53,7 @@ const readJSON = (k, d) => { try { const r = localStorage.getItem(k); return r ?
 let S = normalize(readJSON(LS, null) || readJSON('deck-ops-v1', null));
 let LOG = (readJSON(LSLOG, null) || readJSON('deck-ops-log-v1', []) || []).filter(e => e && e.id);
 const DEV = Object.assign({ theme: 'phosphor', sound: true, haptics: true, remNight: true, remParts: true, remUpd: true,
-  owner: '10murph10', repo: 'deck-ops-data', token: '', lastSync: 0, syncErr: '', bootSeen: false }, readJSON(LSDEV, {}));
+  owner: '10murph10', repo: 'deck-ops-data', token: '', lastSync: 0, syncErr: '', bootSeen: false, introSeen: false }, readJSON(LSDEV, {}));
 
 const ui = { view: 'ops', branch: 'linux', phase: null, lesson: null, codexTab: 'terms', q: '', logTag: 'all',
   draft: null, editing: null, confirm: null, uploading: false, flashTerm: null, lastFocus: null, layout: null,
@@ -270,7 +270,7 @@ const GH = {
 };
 let syncing = false, syncAgain = false;
 async function syncNow(manual) {
-  if (!ghReady()) { ui.sync = 'nosync'; renderStatus(); if (manual) toast('Add your GitHub key in sys first.'); return; }
+  if (!ghReady()) { ui.sync = 'nosync'; renderStatus(); if (manual) toast('Add your GitHub key in Settings first.'); return; }
   if (!navigator.onLine) { ui.sync = 'offline'; renderStatus(); if (manual) toast('No signal. Sync runs when you\'re back online.'); return; }
   if (syncing) { syncAgain = true; return; }
   syncing = true; ui.sync = 'syncing'; renderStatus();
@@ -407,7 +407,7 @@ async function copyText(text, msg) {
 function renderStatus() {
   const cur = currentPhase();
   const L = {
-    idle: ['◌', 'starting', 'Loading'], nosync: ['○', 'this device', 'Not syncing yet. Add your GitHub key in sys.'],
+    idle: ['◌', 'starting', 'Loading'], nosync: ['○', 'this device', 'Not syncing yet. Add your GitHub key in Settings.'],
     syncing: ['◌', 'syncing', 'Syncing with GitHub'], synced: ['●', 'synced', 'Last synced ' + (DEV.lastSync ? ago(DEV.lastSync) : '')],
     offline: ['○', 'offline', 'No signal. Changes are saved here and sync when you\'re back online.'],
     error: ['✕', 'sync error', DEV.syncErr || 'Sync failed'], autherr: ['✕', 'check key', DEV.syncErr || 'GitHub key problem']
@@ -418,7 +418,7 @@ function renderStatus() {
     '<span class="brand">deck-ops</span><span class="sep">│</span><span>day ' + (daysFrom(S.started) + 1) + '</span>' +
     '<span class="sep hide-sm">│</span><span class="hide-sm">phase ' + cur.id + ' ' + esc(cur.name.toLowerCase()) + '</span>' +
     '<span class="sep">│</span><span class="' + cls + '" title="' + esc(tip) + '">' + g + ' ' + l + '<span class="sr">. ' + esc(tip) + '</span></span>' +
-    '<span class="grow"></span><button class="sys" data-sys aria-label="System settings">sys</button>';
+    '<span class="grow"></span><button class="sys" data-sys>Settings</button>';
 }
 function renderKeys() {
   $('#keys').innerHTML = VIEWS.map(([v, l], i) =>
@@ -451,35 +451,42 @@ function nodeRow(n) {
 }
 
 /* ---------- views ---------- */
+function lessonCard(n, night) {
+  const wait = waitingOn(n), ph = phaseById(n.phase);
+  let h = '<section class="hero"><div class="hero-top"><span class="big">' + n.id + '</span><div><div class="sh-br">' + esc(BR[n.b].name) + '   phase ' + ph.id + ' ' + esc(ph.name) + '   ' + minsLabel(n.mins) + '</div><h2 class="vt">' + esc(n.t) + '</h2></div></div>';
+  h += '<p class="hero-why">' + fmt(n.why) + '</p><div class="mission"><h3>Mission</h3><p>' + fmt(n.mission) + '</p></div>';
+  if (wait.length) h += '<p class="warn">Waiting on ' + esc(wait.map(p => (p.short || p.name) + etaLabel(p)).join('; ')) + '. You can read it now and do the mission once it arrives.</p>';
+  return h + '<div class="row"><button class="btn primary big" data-open="' + n.id + '">' + (night ? 'Start tonight\'s lesson' : 'Start lesson') + '</button>' + (wait.length ? '<button class="btn ghost" data-go="parts">Open Parts</button>' : '') + '</div></section>';
+}
+function qrow(label, value, go, extra) {
+  return '<button class="qrow" ' + go + '><span class="ql">' + esc(label) + '</span><span class="qv">' + value + '</span>' + (extra || '') + '</button>';
+}
 function viewOps() {
-  const nu = nextUp(3), active = PHASES.filter(p => phaseState(p) === 'active'), locked = PHASES.filter(p => phaseState(p) === 'locked');
-  const all = budget(null), parts = allParts();
-  const inbound = parts.filter(p => p.status === 'ordered');
+  const nu = nextUp(3), first = nu[0], dn = nextDeckNight(), night = !!dn && dn.toDateString() === new Date().toDateString();
+  const cur = currentPhase(), cd = cur.obj.filter(isDone).length, parts = allParts();
+  const inbound = parts.filter(p => p.status === 'ordered').sort((a, b) => (a.eta || '9').localeCompare(b.eta || '9'));
   const toOrder = parts.filter(p => p.status === 'wanted' && p.phase > 0 && phaseUnlocked(phaseById(p.phase)));
-  const doneN = NODES.filter(n => isDone(n.id)).length, latest = liveLog().sort(byDate)[0], dn = nextDeckNight();
+  const doneN = NODES.filter(n => isDone(n.id)).length, latest = liveLog().sort(byDate)[0];
   let h = '';
   if (ui.update && NATIVE) h += '<div class="banner"><span class="vt">Update ' + esc(ui.update) + ' ready</span><a class="btn primary" href="' + APK_URL + '">Download</a><span class="muted" style="font-size:12px">Open the file when it lands and tap Update. Your data stays.</span></div>';
   if (!ghReady() && (doneN > 0 || liveLog().length)) h += '<div class="banner"><span>Your progress lives only on this device.</span><button class="btn ghost" data-sys>Set up sync</button></div>';
-  h += '<h1 class="vt">Next up<span class="cur" aria-hidden="true"></span></h1><div class="ops"><div>';
-  h += '<section class="win"><h2 class="wt">Your next three</h2>' + (nu.length ? nu.map(nodeRow).join('') : '<p class="empty">Every open lesson is done. Check the route for what opens next.</p>') + '</section>';
-  h += '<section class="win"><h2 class="wt">Active phases</h2>' + (active.map(p => {
-    const d = p.obj.filter(isDone).length;
-    return '<div class="phase-item"><div class="pline"><button class="linkbtn h" data-routeto="' + p.id + '"><span class="vt" style="font-size:24px">Phase ' + p.id + ' ' + esc(p.name) + '</span></button><span>' + d + ' / ' + p.obj.length + '</span></div>' + meter(d, p.obj.length) + '</div>';
-  }).join('') || '<p class="empty">No phase in progress.</p>');
-  if (locked.length) h += '<ul class="plain" style="margin-top:6px">' + locked.map(p => '<li class="muted">Phase ' + p.id + ' ' + esc(p.name) + ': ' + esc(gateText(p)) + '</li>').join('') + '</ul>';
-  h += '</section><section class="win"><h2 class="wt">Progress</h2><div class="pline"><span>' + doneN + ' of ' + NODES.length + ' lessons</span><span class="vt" style="font-size:24px">' + xpTotal() + ' xp</span></div>';
-  h += BRANCHES.map(b => {
-    const ns = NODES.filter(n => n.b === b.id), d = ns.filter(n => isDone(n.id)).length;
-    return '<div style="margin-top:10px"><div class="pline"><button class="linkbtn" data-branchto="' + b.id + '">' + esc(b.name) + '</button><span class="muted">' + d + ' / ' + ns.length + '</span></div>' + meter(d, ns.length) + '</div>';
-  }).join('') + '</section></div><div>';
-  h += '<section class="win"><h2 class="wt">Deck night</h2>' + (dn ? '<div class="night"><span class="vt">' + esc(dn.toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' })) + '</span><span>' + esc(hhmm(S.sched.hour, S.sched.minute)) + '</span></div>' +
-    (nu[0] ? '<p style="margin:6px 0 0" class="muted">Plan: ' + esc(nu[0].id + ' ' + nu[0].t) + '</p>' : '') : '<p class="empty">Off. Turn it on in sys.</p>') + '</section>';
-  h += '<section class="win"><h2 class="wt">Budget</h2>' + dimLine(all.spent, all.planned) + '<p class="muted" style="font-size:12px;margin:8px 0 0">Deck parts, phases 1 to 6. Many prices are estimates until you buy. <button class="linkbtn" data-go="parts">Open the quartermaster</button></p></section>';
-  h += '<section class="win"><h2 class="wt">Inbound</h2>' + (inbound.length ? '<ul class="plain">' + inbound.map(p => '<li>' + esc(p.name) + '<br><span class="muted" style="font-size:12px">' + (p.eta ? esc(etaLabel(p).replace(/^ \(|\)$/g, '')) : 'no date set') + '</span></li>').join('') + '</ul>' : '<p class="empty">Nothing on order.</p>') + '</section>';
-  h += '<section class="win"><h2 class="wt">To order <small>' + toOrder.length + ' parts</small></h2>' + (toOrder.length ? '<ul class="plain">' + toOrder.slice(0, 4).map(p => '<li><span>' + esc(p.name) + '</span><br><span class="muted" style="font-size:12px">phase ' + p.phase + '   ' + (p.approx ? '~' : '') + money(p.price) + '</span></li>').join('') + '</ul>' + (toOrder.length > 4 ? '<p style="margin:8px 0 0"><button class="linkbtn" data-go="parts">See all ' + toOrder.length + '</button></p>' : '') : '<p class="empty">Nothing waiting in the open phases.</p>') + '</section>';
-  h += '<section class="win"><h2 class="wt">Field log</h2>' + (latest ? '<p style="margin:0"><span class="muted">' + esc(fmtDate(latest.date)) + '</span><br><span style="color:var(--hi)">' + esc(latest.t) + '</span></p>' : '<p class="empty">No entries yet.</p>') + '<div class="row" style="margin-top:12px"><button class="btn ghost" data-newlog>New entry</button><button class="linkbtn" data-go="log">Open the log</button></div></section>';
-  h += '<section class="win"><h2 class="wt">Quest app link</h2><p style="margin:0 0 12px">Copies your completed lessons, dates and xp as JSON, tagged for the Scholar discipline in your 5-year quest app.</p><div class="row"><button class="btn ghost" data-copyjson>Copy quest JSON</button></div></section>';
-  return h + '</div></div>';
+  if (!DEV.introSeen) h += '<section class="win intro"><h2 class="wt">How Deck Ops works</h2><ol class="steps">' +
+    '<li>This screen always shows your next lesson. Tap Start.</li>' +
+    '<li>Read it, do the mission, then tap Mark complete. The next lesson moves up here.</li>' +
+    '<li>When you order or receive a part, tap its status in Parts. Lessons waiting on it open up.</li>' +
+    '<li>Write down what you did in Log, with a photo if you like.</li></ol>' +
+    '<p class="muted" style="margin:0 0 12px">Route shows the whole plan as six phases. Skills lists every lesson. Codex has the glossary, commands and safety notes.</p><button class="btn ghost" data-intro>Got it</button></section>';
+  h += '<h1 class="vt">' + (night ? 'Tonight\'s lesson' : 'Your next lesson') + '<span class="cur" aria-hidden="true"></span></h1>';
+  h += first ? lessonCard(first, night) : '<p class="empty">Every open lesson is done. Check Route for what opens next.</p>';
+  h += '<div class="ops"><div>';
+  if (nu.length > 1) h += '<section class="win"><h2 class="wt">After that</h2>' + nu.slice(1).map(nodeRow).join('') + '</section>';
+  h += '</div><div><section class="win"><h2 class="wt">Status</h2>';
+  h += qrow('Deck night', dn ? esc(dn.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }) + ', ' + hhmm(S.sched.hour, S.sched.minute)) : 'off', 'data-sys');
+  h += qrow('Phase ' + cur.id, esc(cur.name) + '   ' + cd + ' / ' + cur.obj.length, 'data-routeto="' + cur.id + '"', meter(cd, cur.obj.length));
+  h += qrow('Parts', inbound.length ? esc((inbound[0].short || inbound[0].name) + (inbound[0].eta ? ' due ' + fmtShort(inbound[0].eta) : ' on the way')) + (inbound.length > 1 ? ' +' + (inbound.length - 1) : '') : toOrder.length + ' to order', 'data-go="parts"');
+  h += qrow('Lessons', doneN + ' of ' + NODES.length + '   ' + xpTotal() + ' xp', 'data-go="skills"');
+  h += qrow('Log', latest ? esc(fmtShort(latest.date) + ': ' + latest.t) : 'no entries yet', 'data-go="log"');
+  return h + '</section></div></div>';
 }
 const byDate = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.created || 0) - (a.created || 0);
 
@@ -547,7 +554,7 @@ function viewRoute() {
 }
 function viewSkills() {
   const b = BR[ui.branch], ns = NODES.filter(n => n.b === b.id);
-  let h = '<h1 class="vt">Skill trees</h1><div class="tabs" role="tablist" aria-label="Branches">' + BRANCHES.map(x => {
+  let h = '<h1 class="vt">Skill trees</h1><p class="lead">' + NODES.filter(n => isDone(n.id)).length + ' of ' + NODES.length + ' lessons done, ' + xpTotal() + ' xp. Lessons open in order; tap any one to read it.</p><div class="tabs" role="tablist" aria-label="Branches">' + BRANCHES.map(x => {
     const all = NODES.filter(n => n.b === x.id), d = all.filter(n => isDone(n.id)).length;
     return '<button role="tab" aria-selected="' + (x.id === b.id) + '" data-branch="' + x.id + '">' + esc(x.name) + '<span class="c">' + d + '/' + all.length + '</span></button>';
   }).join('') + '</div><p class="lead">' + esc(b.blurb) + '</p><ol class="trace">';
@@ -557,6 +564,8 @@ function viewParts() {
   const all = budget(null);
   let h = '<h1 class="vt">Quartermaster</h1><section class="win"><h2 class="wt">All phases</h2>' + dimLine(all.spent, all.planned) +
     '<p class="muted" style="font-size:12px;margin:8px 0 0">Tap a status to move it along: wanted, ordered, arrived, installed. A ~ marks an estimate; enter what you paid once ordered. Set an ETA and the phone reminds you that morning.</p></section>';
+  const pp = allParts(), inb = pp.filter(p => p.status === 'ordered'), want = pp.filter(p => p.status === 'wanted' && p.phase > 0 && phaseUnlocked(phaseById(p.phase)));
+  h += '<section class="win"><h2 class="wt">On the way</h2>' + (inb.length ? '<ul class="plain">' + inb.map(p => '<li>' + esc(p.name) + '<br><span class="muted" style="font-size:12px">' + (p.eta ? esc(etaLabel(p).replace(/^ \(|\)$/g, '')) : 'no ETA set') + '</span></li>').join('') + '</ul>' : '<p class="empty">Nothing on order.</p>') + '<p class="muted" style="font-size:12px;margin:8px 0 0">' + want.length + ' parts in open phases still to order.</p></section>';
   PHASES.map(p => p.id).concat([0]).forEach(gid => {
     const list = allParts().filter(p => p.phase === gid); if (!list.length) return;
     const ph = phaseById(gid), bb = budget(gid);
@@ -659,7 +668,7 @@ function tog(key, label, desc, on) {
 }
 function sysHTML() {
   const sc = S.sched;
-  let h = '<div class="sh-head"><span class="big">sys</span><div><div class="sh-br">Deck Ops ' + APP_VERSION + (NATIVE ? '   android app' : '   web app') + '</div><h2 id="sh-title" class="vt">Settings</h2></div><button class="x" data-close aria-label="Close settings">×</button></div><div class="sh-body">';
+  let h = '<div class="sh-head"><span></span><div><div class="sh-br">Deck Ops ' + APP_VERSION + (NATIVE ? '   android app' : '   web app') + '</div><h2 id="sh-title" class="vt">Settings</h2></div><button class="x" data-close aria-label="Close settings">×</button></div><div class="sh-body">';
   h += '<div class="set"><h3>Look</h3><div>' + THEMES.map(([k, l]) => '<button class="chip" data-theme="' + k + '" aria-pressed="' + (DEV.theme === k) + '">' + l + '</button>').join('') + '</div></div>';
   h += '<div class="set"><h3>Sound and feel</h3>' + tog('sound', 'Terminal sounds', 'Key clicks, boot beep, completion chirp', DEV.sound) + tog('haptics', 'Vibration', 'A tap on keys, a buzz on completion', DEV.haptics) + '</div>';
   h += '<div class="set"><h3>Reminders</h3>';
@@ -679,7 +688,7 @@ function sysHTML() {
   h += '<details style="margin-top:12px"><summary class="linkbtn">How to make the access key</summary><ol class="steps"><li>On github.com, open your profile picture, then Settings, then Developer settings, then Personal access tokens, then Fine-grained tokens.</li><li>Generate new token. Name it deck-ops. Expiration: 1 year.</li><li>Repository access: Only select repositories, then pick ' + esc(DEV.repo) + '.</li><li>Permissions, Repository: Contents, Read and write. Leave the rest.</li><li>Generate, copy it, paste it above. Do the same on each device; the key never leaves the device it\'s on.</li></ol></details></div>';
   h += '<div class="set"><h3>Data</h3><p>Bring progress over from the Claude tracker: tap Copy JSON there, then paste below. A full backup from this app also works.</p>' +
     '<label class="sr" for="imp">Paste JSON</label><textarea id="imp" placeholder="Paste JSON here" style="min-height:80px"></textarea>' +
-    '<div class="row" style="margin-top:8px"><button class="btn ghost" data-import>Import</button><button class="btn ghost" data-backup>Copy full backup</button></div>' + (ui.importMsg ? '<p class="kv" style="margin-top:8px">' + esc(ui.importMsg) + '</p>' : '') + '</div>';
+    '<div class="row" style="margin-top:8px"><button class="btn ghost" data-import>Import</button><button class="btn ghost" data-backup>Copy full backup</button><button class="btn ghost" data-copyjson>Copy quest JSON</button></div><p class="kv" style="margin-top:8px">Quest JSON: completed lessons, dates and xp, tagged Scholar, for the 5-year quest app.</p>' + (ui.importMsg ? '<p class="kv" style="margin-top:8px">' + esc(ui.importMsg) + '</p>' : '') + '</div>';
   h += '<div class="set"><h3>Version</h3><p class="kv">Deck Ops <b>' + APP_VERSION + '</b>' + (ui.update ? '. Version <b>' + esc(ui.update) + '</b> is ready.' : '') + '</p><div class="row">' +
     (NATIVE ? (ui.update ? '<a class="btn primary" href="' + APK_URL + '">Download ' + esc(ui.update) + '</a>' : '') + '<button class="btn ghost" data-checkupd>Check for updates</button>' : '<span class="muted">The web app updates itself.</span>') + '</div></div>';
   return h + '</div>';
@@ -848,6 +857,7 @@ document.addEventListener('click', async ev => {
     if (k === 'night' || k === 'remParts' || k === 'remUpd') { if (REM.ok() && ui.notif !== 'granted') await REM.ask(); }
     return commit();
   }
+  if (a('data-intro') != null) { DEV.introSeen = true; saveDev(); return render(); }
   if (a('data-asknotif') != null) return REM.ask();
   if (a('data-testnotif') != null) return REM.test();
   if (a('data-syncnow') != null) return syncNow(true);

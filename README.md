@@ -10,7 +10,7 @@ Cyberdeck build tracker: the route, 33 lessons across Linux, Electronics, CAD & 
 
 1. On the phone, open https://github.com/10murph10/deck-ops/releases/latest/download/DeckOps.apk
 2. Open the download. Android asks to allow installs from your browser the first time; allow it, then tap Install.
-3. Open Deck Ops, tap **sys**, paste your access key under Sync, and allow notifications.
+3. Open Deck Ops, tap **Settings**, paste your access key under Sync, and allow notifications.
 
 Updates: when a new version is out, the app shows a banner. Tap Download, open the file, tap Update. Your data stays.
 
@@ -27,7 +27,7 @@ Keep a copy of both somewhere safe. Without the same key, a new build can't upda
 
 **Web app:** Settings > Pages > Build and deployment > Source: **GitHub Actions**.
 
-**Sync key:** github.com > Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token. Repository access: only `deck-ops-data`. Permissions: Contents, read and write. Paste it into **sys** on each device.
+**Sync key:** github.com > Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token. Repository access: only `deck-ops-data`. Permissions: Contents, read and write. Paste it into **Settings** on each device.
 
 ## How it's built
 
