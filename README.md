@@ -1,6 +1,6 @@
 # Deck Ops
 
-Cyberdeck build tracker: the route, 33 lessons across Linux, Electronics, CAD & fab and Radio, the parts list, a field log with photos, and a codex. Green phosphor, amber or blueprint.
+Cyberdeck build tracker: the route, 35 lessons across Linux, Electronics, CAD & fab and Radio, the parts list, a field log with photos, and a codex. Green phosphor, amber or blueprint.
 
 - **Android app:** works with no signal, takes photos, reminds you about deck night, parts due and monthly updates.
 - **Web app:** the same thing in a browser at https://10murph10.github.io/deck-ops/ (install it from Chrome or Edge's address bar).

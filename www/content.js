@@ -15,13 +15,13 @@ const PHASES = [
     obj: ['L5', 'L6', 'R1', 'R2', 'R3', 'R4'] },
   { id: 3, name: 'The case', gate: null,
     blurb: 'Radio field kit: Nanuk hard case, aluminum front panel, printed brackets. You design it; Creation Nation prints it. Open from day one so you can start the makerspace training now.',
-    obj: ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'] },
+    obj: ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'L9'] },
   { id: 4, name: 'Field power', gate: { node: 'C8' },
     blurb: 'A battery board with 18650 cells so the deck runs unplugged. The one phase with real safety rules; read the Safety page in the Codex before buying.',
     obj: ['E8', 'E9', 'L8'] },
   { id: 5, name: 'Mesh net', gate: { node: 'E5' },
     blurb: 'Meshtastic nodes for off-grid text, a first ESP32, soldering, and gadgets that report to the deck.',
-    obj: ['E6', 'E7', 'E10', 'L7', 'R5'] },
+    obj: ['E6', 'E7', 'E10', 'L7', 'R5', 'L10'] },
   { id: 6, name: 'On the air', gate: { node: 'R4' },
     blurb: 'Shortwave listening across continents, then the Basic certificate and a VE4 call sign of your own.',
     obj: ['R6', 'R7'] }
@@ -29,12 +29,12 @@ const PHASES = [
 
 const NODES = [
   /* ---------------- LINUX ---------------- */
-  { id: 'L1', b: 'linux', phase: 1, t: 'First boot', mins: 45, xp: 10, req: [], needs: ['pi-kit', 'keyboard'],
-    why: 'The kit is a complete computer. This gets it running on your TV.',
+  { id: 'L1', b: 'linux', phase: 1, t: 'First boot', mins: 45, xp: 10, req: [], needs: ['pi-kit', 'keyboard', 'cord'],
+    why: 'The kit is a complete computer. This gets it running on your HP monitor.',
     learn: [
       'Fit the Pi into the metal case with the thermal pad between the chip and the lid. The case is the heat sink.',
       'The microSD card is the Pi\'s hard drive, and the kit\'s card already has Raspberry Pi OS on it. Slide it into the slot under the board, label facing away.',
-      'Plug in the micro-HDMI cable (the port beside the USB-C power jack), then the keyboard\'s USB receiver, then power last.',
+      'Run the kit\'s micro-HDMI cable from the Pi (the port beside the USB-C power jack) to either HDMI port on the HP monitor. Then the keyboard\'s USB receiver, then power last.',
       'The setup wizard asks for country (Canada), keyboard, a username and password, and Wi-Fi, then offers updates. Say yes; it takes 10 to 20 minutes.',
       'Shut down from the menu, not by pulling the plug. Cutting power while it runs can corrupt the card.'
     ],
@@ -134,6 +134,33 @@ const NODES = [
     mission: 'Back up, wipe the card with Imager, rebuild, restore your notes, and reinstall htop and the SDR drivers.',
     done: 'The rebuilt deck runs everything it did before.',
     terms: ['imager'] },
+
+  { id: 'L9', b: 'linux', phase: 3, t: 'Two screens', mins: 30, xp: 15, req: ['L4'], needs: ['screen', 'hdmi2'],
+    why: 'At the bench the deck drives the big HP monitor and its own 7-inch at the same time: work on one, watch the radio on the other.',
+    learn: [
+      'The Pi 5 has two micro-HDMI ports and runs a separate screen on each. HDMI0 sits beside the USB-C power jack; HDMI1 is next to it.',
+      'Big monitor on HDMI0, the 7-inch on HDMI1. Plug both in before powering on.',
+      'Open Menu > Preferences > Screen Configuration. Drag the two screens so their layout matches your desk, then pick which one is the main display. Apply.',
+      'Windows drag across from one screen to the other. The 7-inch becomes your status screen; the HP stays your workspace.',
+      'In the field, unplug the HP and the deck carries on with just the 7-inch.'
+    ],
+    mission: 'Run both screens at once, arrange them to match your desk, and drag a terminal across to the 7-inch.',
+    done: 'Both screens show one desktop and windows move between them.',
+    terms: [] },
+
+  { id: 'L10', b: 'linux', phase: 5, t: 'Status board', mins: 90, xp: 25, req: ['L9', 'L7', 'E6'],
+    why: 'The side screen becomes the deck\'s instrument panel: radio, mesh, system and gadgets at a glance.',
+    learn: [
+      'Each panel is just a window on the 7-inch. Drag and resize them by their edges and corners into a grid.',
+      'System: `htop` for CPU and memory, and `watch -n 5 vcgencmd measure_temp` for the chip temperature, refreshing every 5 seconds.',
+      'Gadgets: `tail -f ~/deck/logs/sensor.csv` prints each new reading from your E6 logger as it arrives.',
+      'Radio: the SDR waterfall from R2, sized to fill half the screen.',
+      'Mesh: the Meshtastic web client in Chromium shows messages and the node map from the deck\'s node.',
+      'Once the layout is right, save the startup commands in a script so one command rebuilds the board.'
+    ],
+    mission: 'Build a four-panel status board on the 7-inch (waterfall, mesh, htop, sensor feed) while you work on the HP monitor.',
+    done: 'All four panels run on the side screen at once, and one script brings them back after a reboot.',
+    terms: [] },
 
   /* ---------------- ELECTRONICS ---------------- */
   { id: 'E1', b: 'elec', phase: 1, t: 'Blink', mins: 30, xp: 10, req: [], needs: ['arduino'],
@@ -461,12 +488,14 @@ const NODES = [
 const PARTS = [
   { id: 'arduino', short: 'Arduino kit', phase: 0, name: 'Arduino starter kit', price: null, where: 'Already ordered', dflt: 'ordered', eta: '2026-11-06', note: 'Arriving Friday. Add what you paid.' },
   { id: 'pi-kit', short: 'Pi kit', phase: 1, name: 'Raspberry Pi 5 Aluminum Starter Kit, 4 GB', price: 227.95, where: 'PiShop.ca', url: 'https://www.pishop.ca/product/raspberry-pi-5-aluminum-starter-kit-4gb/', note: 'Pi, 27 W supply, 64 GB card with the OS loaded, micro-HDMI cable, fanless case. The 2 GB kit is $184.45.' },
+  { id: 'cord', short: 'monitor cord', phase: 1, name: 'Canadian power cord for the HP monitor\'s power brick', price: 10, approx: true, where: 'Canadian Tire, Staples or Amazon.ca', note: 'The brick takes 100 to 240 V, so only the cord changes. Match the socket on the brick: three-lobed cloverleaf (C5) or figure-8 (C7).' },
   { id: 'keyboard', short: 'keyboard', phase: 1, name: 'Logitech K400 Plus keyboard and trackpad', price: 40, approx: true, where: 'Amazon.ca or local', url: 'https://www.amazon.ca/s?k=logitech+k400+plus', note: 'Goes on sale often.' },
   { id: 'sdr', short: 'SDR', phase: 2, name: 'RTL-SDR Blog V4 with dipole antenna kit', price: 75, approx: true, where: 'Amazon.ca', url: 'https://www.amazon.ca/s?k=rtl-sdr+blog+v4+dipole', note: 'Buy the kit with the telescoping dipole. It tunes shortwave directly, so no upconverter later.' },
   { id: 'membership', short: 'membership', phase: 3, name: 'Creation Nation membership, 2 months', price: 100, where: '440 Rosser Ave, Brandon', url: 'https://cnm.bnrc.ca/about-us/', note: '$50/month plus tax.' },
   { id: 'calipers', short: 'calipers', phase: 3, name: 'Digital calipers', price: 25, approx: true, where: 'Local hardware store', note: 'For measuring the screen, Pi and case.' },
   { id: 'case', short: 'Nanuk case', phase: 3, name: 'NANUK-R 910 hard case', price: 96.95, where: 'nanuk.com', url: 'https://nanuk.com/en-ca/collections/910', note: 'Made in Canada. Interior 336 × 234 × 104 mm. A Pelican 1150 also works.' },
   { id: 'screen', short: '7-inch screen', phase: 3, name: '7-inch HDMI display, 1024 × 600 IPS', price: 85, approx: true, where: 'PiShop.ca or Amazon.ca', url: 'https://www.pishop.ca/product-category/raspberry-pi/raspberry-pi-screens/', note: 'Measure it before designing the bracket.' },
+  { id: 'hdmi2', short: 'second HDMI cable', phase: 3, name: 'Second micro-HDMI to HDMI cable', price: 12, approx: true, where: 'PiShop.ca or Amazon.ca', note: 'Runs the 7-inch as a status screen beside the HP monitor.' },
   { id: 'standoffs', short: 'standoffs', phase: 3, name: 'M2.5 brass standoff and screw kit', price: 15, approx: true, where: 'Amazon.ca or PiShop.ca' },
   { id: 'filament', short: 'filament', phase: 3, name: 'PETG filament, 1 kg', price: 30, approx: true, where: 'Makerspace or online', note: 'Ask the makerspace first; some sell by the gram. PETG over PLA because PLA softens near 60 °C.' },
   { id: 'alu', short: 'aluminum sheet', phase: 3, name: 'Aluminum sheet, 1.5 to 2 mm, about 30 × 25 cm', price: 25, approx: true, where: 'Local metal supplier or offcuts', note: '5052 or 6061.' },
@@ -578,6 +607,8 @@ const COMMANDS = [
     ['df -h', 'Free space on the card', 'L4'],
     ['free -h', 'Memory in use', 'L4'],
     ['vcgencmd measure_temp', 'Chip temperature', 'L7'],
+    ['watch -n 5 command', 'Rerun a command every 5 seconds', 'L10'],
+    ['tail -f file', 'Follow a file as new lines arrive (Ctrl+C stops)', 'L10'],
     ['sudo reboot', 'Restart', 'L4'],
     ['sudo shutdown -h now', 'Shut down cleanly', 'L4']
   ]],
