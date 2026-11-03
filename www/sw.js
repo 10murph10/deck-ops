@@ -1,6 +1,6 @@
 /* Offline cache for the web app. The Android app ships its files inside the app and doesn't use this. */
-const CACHE = 'deckops-1.0.2';
-const SHELL = ['./', 'index.html', 'styles.css', 'content.js', 'app.js', 'cap.js', 'manifest.webmanifest',
+const CACHE = 'deckops-1.1.0';
+const SHELL = ['./', 'index.html', 'styles.css', 'content.js', 'content-ext.js', 'app.js', 'cap.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'fonts/vt323.woff2', 'fonts/martian.woff2'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {})))).then(() => self.skipWaiting()));

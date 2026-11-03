@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.0.2';
+const APP_VERSION = '1.1.0';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -30,8 +30,8 @@ const TERM = {}; TERMS.forEach(t => { TERM[t.id] = t; });
 const BR = {}; BRANCHES.forEach((b, i) => { BR[b.id] = Object.assign({ ord: i }, b); });
 const VIEWS = [['ops', 'Ops'], ['route', 'Route'], ['skills', 'Skills'], ['parts', 'Parts'], ['log', 'Log'], ['codex', 'Codex']];
 const STATUSES = ['wanted', 'ordered', 'arrived', 'installed'];
-const TAGS = ['Linux', 'Electronics', 'CAD', 'Radio', 'Signal', 'Case', 'Other'];
-const BR_TAG = { linux: 'Linux', elec: 'Electronics', cad: 'CAD', radio: 'Radio' };
+const TAGS = ['Linux', 'Electronics', 'CAD', 'Radio', 'Base', 'Signal', 'Case', 'Other'];
+const BR_TAG = { linux: 'Linux', elec: 'Electronics', cad: 'CAD', radio: 'Radio', base: 'Base' };
 const THEMES = [['phosphor', 'Phosphor', '#03140c'], ['amber', 'Amber', '#140d03'], ['blueprint', 'Blueprint', '#0d2b4e']];
 
 /* ---------- state ----------
@@ -475,7 +475,7 @@ function viewOps() {
     '<li>Read it, do the mission, then tap Mark complete. The next lesson moves up here.</li>' +
     '<li>When you order or receive a part, tap its status in Parts. Lessons waiting on it open up.</li>' +
     '<li>Write down what you did in Log, with a photo if you like.</li></ol>' +
-    '<p class="muted" style="margin:0 0 12px">Route shows the whole plan as six phases. Skills lists every lesson. Codex has the glossary, commands and safety notes.</p><button class="btn ghost" data-intro>Got it</button></section>';
+    '<p class="muted" style="margin:0 0 12px">Route shows the whole plan as ' + PHASES.length + ' phases. Skills lists every lesson. Codex has the glossary, commands and safety notes.</p><button class="btn ghost" data-intro>Got it</button></section>';
   h += '<h1 class="vt">' + (night ? 'Tonight\'s lesson' : 'Your next lesson') + '<span class="cur" aria-hidden="true"></span></h1>';
   h += first ? lessonCard(first, night) : '<p class="empty">Every open lesson is done. Check Route for what opens next.</p>';
   h += '<div class="ops"><div>';
@@ -492,8 +492,8 @@ const byDate = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.create
 
 /* route diagram */
 const ROUTE = {
-  wide: { W: 860, H: 348, bw: 196, bh: 82, pos: { 1: [96, 24], 2: [368, 24], 6: [640, 24], 5: [368, 134], 3: [96, 244], 4: [368, 244] } },
-  tall: { W: 344, H: 404, bw: 106, bh: 86, pos: { 1: [2, 56], 3: [236, 56], 2: [2, 182], 5: [119, 182], 4: [236, 182], 6: [2, 308] } }
+  wide: { W: 860, H: 348, bw: 196, bh: 82, pos: { 1: [96, 24], 2: [368, 24], 6: [640, 24], 7: [96, 134], 5: [368, 134], 8: [640, 134], 3: [96, 244], 4: [368, 244], 9: [640, 244] } },
+  tall: { W: 344, H: 404, bw: 106, bh: 86, pos: { 1: [2, 56], 7: [119, 56], 3: [236, 56], 2: [2, 182], 5: [119, 182], 4: [236, 182], 6: [2, 308], 8: [119, 308], 9: [236, 308] } }
 };
 function corners(x, y, w, h, k) {
   const r = x + w, b = y + h;
@@ -510,23 +510,27 @@ function routeSVG(kind, sel) {
   const cx = id => P[id][0] + bw / 2, cy = id => P[id][1] + bh / 2, R = id => P[id][0] + bw, B = id => P[id][1] + bh, T = id => P[id][1], Lx = id => P[id][0];
   const on = id => phaseUnlocked(phaseById(id));
   const wire = (d, child, lbl, lx, ly) => '<path class="wire' + (on(child) ? '' : ' off') + '" d="' + d + '" marker-end="url(#ah' + (on(child) ? '' : 'o') + ')"/><text class="glbl" x="' + lx + '" y="' + ly + '">' + lbl + '</text>';
-  let s = '<svg viewBox="0 0 ' + L.W + ' ' + L.H + '" role="group" aria-label="Build route: six phases and what opens each">' +
+  let s = '<svg viewBox="0 0 ' + L.W + ' ' + L.H + '" role="group" aria-label="Build route: ' + PHASES.length + ' phases and what opens each">' +
     '<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="mk" d="M0,0 L8,4 L0,8 z"/></marker>' +
     '<marker id="aho" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="mk off" d="M0,0 L8,4 L0,8 z"/></marker></defs>';
   if (kind === 'wide') {
     const mid = (cy(1) + cy(3)) / 2;
     s += '<path class="ant" d="M38 ' + mid + ' V' + (mid - 30) + ' L26 ' + (mid - 52) + ' M38 ' + (mid - 30) + ' L50 ' + (mid - 52) + ' M38 ' + (mid - 30) + ' V' + (mid - 56) + '"/>' +
-      '<path class="wire" d="M38 ' + mid + ' H70 M70 ' + cy(1) + ' V' + cy(3) + ' M70 ' + cy(1) + ' H' + (Lx(1) - 2) + ' M70 ' + cy(3) + ' H' + (Lx(3) - 2) + '"/>';
+      '<path class="wire" d="M38 ' + mid + ' H70 M70 ' + cy(1) + ' V' + cy(3) + ' M70 ' + cy(1) + ' H' + (Lx(1) - 2) + ' M70 ' + cy(7) + ' H' + (Lx(7) - 2) + ' M70 ' + cy(3) + ' H' + (Lx(3) - 2) + '"/>';
     s += wire('M' + R(1) + ' ' + cy(1) + ' H' + (Lx(2) - 3), 2, 'L4', R(1) + 22, cy(1) - 8);
     s += wire('M' + R(2) + ' ' + cy(2) + ' H' + (Lx(6) - 3), 6, 'R4', R(2) + 22, cy(2) - 8);
     s += wire('M' + R(1) + ' ' + (cy(1) + 22) + ' H' + (R(1) + 36) + ' V' + cy(5) + ' H' + (Lx(5) - 3), 5, 'E5', R(1) + 42, cy(1) + 62);
     s += wire('M' + R(3) + ' ' + cy(3) + ' H' + (Lx(4) - 3), 4, 'C8', R(3) + 22, cy(3) - 8);
+    s += wire('M' + R(5) + ' ' + cy(5) + ' H' + (Lx(8) - 3), 8, 'L7', R(5) + 22, cy(5) - 8);
+    s += wire('M' + R(5) + ' ' + (cy(5) + 22) + ' H' + (R(5) + 36) + ' V' + cy(9) + ' H' + (Lx(9) - 3), 9, 'E10', R(5) + 42, cy(5) + 62);
   } else {
-    s += '<path class="ant" d="M172 22 V40 M172 22 L162 6 M172 22 L182 6 M172 22 V2"/><path class="wire" d="M172 40 V44 M' + cx(1) + ' 44 H' + cx(3) + ' M' + cx(1) + ' 44 V' + (T(1) - 2) + ' M' + cx(3) + ' 44 V' + (T(3) - 2) + '"/>';
+    s += '<path class="ant" d="M172 22 V40 M172 22 L162 6 M172 22 L182 6 M172 22 V2"/><path class="wire" d="M172 40 V44 M' + cx(1) + ' 44 H' + cx(3) + ' M' + cx(1) + ' 44 V' + (T(1) - 2) + ' M' + cx(7) + ' 44 V' + (T(7) - 2) + ' M' + cx(3) + ' 44 V' + (T(3) - 2) + '"/>';
     s += wire('M' + cx(1) + ' ' + B(1) + ' V' + (T(2) - 3), 2, 'L4', cx(1) + 8, B(1) + 24);
     s += wire('M' + (cx(1) + 30) + ' ' + B(1) + ' V' + (B(1) + 20) + ' H' + cx(5) + ' V' + (T(5) - 3), 5, 'E5', cx(5) + 8, B(1) + 34);
     s += wire('M' + cx(3) + ' ' + B(3) + ' V' + (T(4) - 3), 4, 'C8', cx(3) + 8, B(3) + 24);
     s += wire('M' + cx(2) + ' ' + B(2) + ' V' + (T(6) - 3), 6, 'R4', cx(2) + 8, B(2) + 24);
+    s += wire('M' + cx(5) + ' ' + B(5) + ' V' + (T(8) - 3), 8, 'L7', cx(5) + 8, B(5) + 30);
+    s += wire('M' + (cx(5) + 30) + ' ' + B(5) + ' V' + (B(5) + 20) + ' H' + cx(9) + ' V' + (T(9) - 3), 9, 'E10', cx(5) + 38, B(5) + 14);
   }
   PHASES.forEach(p => {
     const [x, y] = P[p.id], st = phaseState(p), d = p.obj.filter(isDone).length, tot = p.obj.length;
@@ -544,12 +548,13 @@ function routeSVG(kind, sel) {
 function viewRoute() {
   const kind = window.innerWidth >= 760 ? 'wide' : 'tall'; ui.layout = kind;
   const sel = ui.phase || currentPhase().id, p = phaseById(sel), st = phaseState(p), b = budget(p.id);
-  let h = '<h1 class="vt">The route</h1><p class="lead">Six phases, two tracks fed from the start. A phase opens when you finish the lesson on its wire. Select a phase for its work and parts.</p>';
+  let h = '<h1 class="vt">The route</h1><p class="lead">' + PHASES.length + ' phases. Three are open from the start: the bench deck, the case and the base station. The rest open when you finish the lesson on their wire. Select a phase for its work and parts.</p>';
   h += '<div class="route-wrap route">' + routeSVG(kind, sel) + '</div>';
   h += '<section class="win"><h2 class="wt">Phase ' + p.id + '  ' + esc(p.name) + ' <small>' + st + '</small></h2><p class="lead">' + esc(p.blurb) + '</p><p class="' + (st === 'locked' ? 'warn' : 'muted') + '" style="margin:0 0 10px">' + esc(gateText(p)) + '</p>';
   h += '<h3 class="sub">Objectives</h3>' + p.obj.map(id => nodeRow(NODE[id])).join('');
   if (b.list.length) h += '<h3 class="sub">Parts</h3><ul class="plain">' + b.list.map(x => '<li class="pline"><span>' + esc(x.name) + '</span><span class="muted" style="white-space:nowrap">' + (x.approx ? '~' : '') + money(x.price) + '   ' + x.status + '</span></li>').join('') + '</ul>' + dimLine(b.spent, b.planned);
   if (p.id === 4) h += '<p class="warn" style="margin-top:12px">Lithium cells are the one real hazard in this build. <button class="linkbtn" data-safety>Read the safety page</button> before buying.</p>';
+  if (p.id === 9) h += '<p class="warn" style="margin-top:12px">The wrist runs on a LiPo pouch cell. <button class="linkbtn" data-safety>Read the safety page</button> before buying one.</p>';
   return h + '</section>';
 }
 function viewSkills() {
@@ -569,12 +574,12 @@ function viewParts() {
   PHASES.map(p => p.id).concat([0]).forEach(gid => {
     const list = allParts().filter(p => p.phase === gid); if (!list.length) return;
     const ph = phaseById(gid), bb = budget(gid);
-    h += '<section class="win"><h2 class="wt">' + (ph ? 'Phase ' + ph.id + '  ' + esc(ph.name) : 'Gadget bench') + (ph && phaseState(ph) === 'locked' ? ' <small>locked</small>' : '') + '</h2>';
+    h += '<section class="win"><h2 class="wt">' + (ph ? 'Phase ' + ph.id + '  ' + esc(ph.name) : 'Bench and later') + (ph && phaseState(ph) === 'locked' ? ' <small>locked</small>' : '') + '</h2>';
     h += ph ? dimLine(bb.spent, bb.planned) : '<p class="muted" style="font-size:12px;margin:0">Outside the deck budget.</p>';
     h += '<ul class="plain">' + list.map(partRow).join('') + '</ul></section>';
   });
   return h + '<section class="win"><h2 class="wt">Add a part</h2><form class="form" id="addPart"><label class="f">Name<input name="name" required maxlength="120"></label>' +
-    '<div class="two"><label class="f">Phase<select name="phase">' + PHASES.map(p => '<option value="' + p.id + '">' + p.id + ' ' + esc(p.name) + '</option>').join('') + '<option value="0">Gadget bench</option></select></label>' +
+    '<div class="two"><label class="f">Phase<select name="phase">' + PHASES.map(p => '<option value="' + p.id + '">' + p.id + ' ' + esc(p.name) + '</option>').join('') + '<option value="0">Bench and later</option></select></label>' +
     '<label class="f">Price (CAD)<input name="price" type="number" step="0.01" min="0" inputmode="decimal"></label></div>' +
     '<div class="two"><label class="f">Where<input name="where" maxlength="80"></label><label class="f">Link<input name="url" type="url" placeholder="https://"></label></div>' +
     '<div><button class="btn primary">Add part</button></div></form></section>';
@@ -955,7 +960,7 @@ function boot() {
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (seen || reduce) return;
   const el = $('#boot'), tx = $('#bootText');
-  const lines = ['deck-ops ' + APP_VERSION, 'phosphor warm-up ........ ok', 'lessons loaded .......... ' + NODES.length, 'route plotted ........... 6 phases', ghReady() ? 'uplink .................. ' + DEV.repo : 'uplink .................. this device', 'ready'];
+  const lines = ['deck-ops ' + APP_VERSION, 'phosphor warm-up ........ ok', 'lessons loaded .......... ' + NODES.length, 'route plotted ........... ' + PHASES.length + ' phases', ghReady() ? 'uplink .................. ' + DEV.repo : 'uplink .................. this device', 'ready'];
   el.hidden = false; let i = 0;
   const done = () => { el.classList.add('out'); setTimeout(() => { el.hidden = true; }, 380); };
   const step = () => { tx.textContent = lines.slice(0, ++i).join('\n') + (i < lines.length ? '\n_' : ''); if (i < lines.length) setTimeout(step, 150); else { SFX.boot(); setTimeout(done, 380); } };
