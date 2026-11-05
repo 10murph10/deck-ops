@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -39,10 +39,10 @@ const THEMES = [['phosphor', 'Phosphor', '#03140c'], ['amber', 'Amber', '#140d03
    LOG: synced journal entries; each carries u (updated ms) and del (tombstone).
    DEV: this device only (theme, sound, reminders toggles, GitHub key). Never synced. */
 const LS = 'deckops.state.v2', LSLOG = 'deckops.log.v2', LSDEV = 'deckops.device.v1';
-const blank = () => ({ v: 2, started: todayISO(), done: {}, parts: {}, custom: {}, ahead: {}, sched: { on: true, weekday: 4, hour: 19, minute: 0 }, t: {} });
+const blank = () => ({ v: 2, started: todayISO(), done: {}, parts: {}, custom: {}, ahead: {}, tu: {}, sched: { on: true, weekday: 4, hour: 19, minute: 0 }, t: {} });
 function normalize(d) {
   const o = Object.assign(blank(), d || {});
-  ['done', 'parts', 'ahead', 't'].forEach(k => { if (!o[k] || typeof o[k] !== 'object' || Array.isArray(o[k])) o[k] = {}; });
+  ['done', 'parts', 'ahead', 'tu', 't'].forEach(k => { if (!o[k] || typeof o[k] !== 'object' || Array.isArray(o[k])) o[k] = {}; });
   if (Array.isArray(o.custom)) { const m = {}; o.custom.forEach(c => { if (c && c.id) m[c.id] = c; }); o.custom = m; }
   if (!o.custom || typeof o.custom !== 'object') o.custom = {};
   if (!o.sched || typeof o.sched !== 'object') o.sched = blank().sched;
@@ -456,7 +456,7 @@ function lessonCard(n, night) {
   let h = '<section class="hero"><div class="hero-top"><span class="big">' + n.id + '</span><div><div class="sh-br">' + esc(BR[n.b].name) + '   phase ' + ph.id + ' ' + esc(ph.name) + '   ' + minsLabel(n.mins) + '</div><h2 class="vt">' + esc(n.t) + '</h2></div></div>';
   h += '<p class="hero-why">' + fmt(n.why) + '</p><div class="mission"><h3>Mission</h3><p>' + fmt(n.mission) + '</p></div>';
   if (wait.length) h += '<p class="warn">Waiting on ' + esc(wait.map(p => (p.short || p.name) + etaLabel(p)).join('; ')) + '. You can read it now and do the mission once it arrives.</p>';
-  return h + '<div class="row"><button class="btn primary big" data-open="' + n.id + '">' + (night ? 'Start tonight\'s lesson' : 'Start lesson') + '</button>' + (wait.length ? '<button class="btn ghost" data-go="parts">Open Parts</button>' : '') + '</div></section>';
+  return h + '<div class="row"><button class="btn primary big" data-open="' + n.id + '">' + (night ? 'Start tonight\'s lesson' : 'Start lesson') + '</button><button class="btn ghost" data-tutor="' + n.id + '">' + (S.tu[n.id] ? 'Tutor: step ' + (S.tu[n.id] + 1) : 'Walk me through it') + '</button>' + (wait.length ? '<button class="btn ghost" data-go="parts">Open Parts</button>' : '') + '</div></section>';
 }
 function qrow(label, value, go, extra) {
   return '<button class="qrow" ' + go + '><span class="ql">' + esc(label) + '</span><span class="qv">' + value + '</span>' + (extra || '') + '</button>';
@@ -473,6 +473,7 @@ function viewOps() {
   if (!DEV.introSeen) h += '<section class="win intro"><h2 class="wt">How Deck Ops works</h2><ol class="steps">' +
     '<li>This screen always shows your next lesson. Tap Start.</li>' +
     '<li>Read it, do the mission, then tap Mark complete. The next lesson moves up here.</li>' +
+    '<li>Not sure what to do? Walk me through it opens the tutor: one step at a time, with hints before answers.</li>' +
     '<li>When you order or receive a part, tap its status in Parts. Lessons waiting on it open up.</li>' +
     '<li>Write down what you did in Log, with a photo if you like.</li></ol>' +
     '<p class="muted" style="margin:0 0 12px">Route shows the whole plan as ' + PHASES.length + ' phases. Skills lists every lesson. Codex has the glossary, commands and safety notes.</p><button class="btn ghost" data-intro>Got it</button></section>';
@@ -650,6 +651,82 @@ function viewCodex() {
   return h;
 }
 
+/* ---------- tutor ---------- */
+function tutorFor(id) {
+  if (TUTOR[id]) return TUTOR[id];
+  const n = NODE[id], steps = n.learn.map(x => ({ say: x }));
+  if (n.cmd) steps.push({ t: 'Commands for this lesson', say: n.cmd.map(([c, d]) => '`' + c + '`: ' + d).join('\n') });
+  if (n.code) { const at = n.learn.findIndex(x => /below/i.test(x)); if (at >= 0) steps[at].code = n.code; else steps.push({ t: 'The code', say: 'Here it is. Read it line by line before you run it; Ask Claude can explain any line.', code: n.code }); }
+  steps.push({ t: 'Your mission', say: n.mission, why: n.why, mission: true });
+  const gear = (n.needs || []).map(partById).filter(Boolean).map(p => p.name);
+  return { auto: true, gear: gear.length ? gear : null, steps };
+}
+const plainText = x => String(x == null ? '' : x).replace(/`/g, '');
+function claudePrompt(id, k) {
+  const n = NODE[id], T = tutorFor(id), s = T.steps[k];
+  const what = s.do ? [].concat(s.do).map(plainText).join(' ') : plainText([].concat(s.say)[0]);
+  return 'I\'m a beginner building a cyberdeck, working with ' + (TUTOR_CTX[n.b] || 'my cyberdeck parts') + '. I\'m on lesson ' + n.id + ' "' + n.t + '", step ' + (k + 1) + ' of ' + T.steps.length + (s.t ? ': "' + s.t + '"' : '') + '.\n\n' +
+    'The step says: ' + what.slice(0, 700) + '\n\n' +
+    'Please tutor me: ask what I\'ve tried, or give me one hint at a time and explain the why. Only give me the full answer if I ask for it.\n\nWhere I\'m stuck: ';
+}
+const codeBox = (code, key) => '<div class="code"><button class="copy" data-copyt="' + key + '">Copy</button><pre><code>' + esc(code) + '</code></pre></div>';
+const paras = x => [].concat(x || []).map(t => '<p>' + fmt(t).replace(/\n/g, '<br>') + '</p>').join('');
+function tutorHTML(id) {
+  const n = NODE[id], T = tutorFor(id), st = ui.tut || { step: 0, hints: 0, shown: false, picks: {} }, N = T.steps.length, k = Math.min(st.step, N - 1), s = T.steps[k];
+  const d = isDone(id), lock = d ? null : nodeLock(n);
+  let h = '<div class="sh-head"><span class="big">' + n.id + '</span><div><div class="sh-br">Tutor   ' + esc(BR[n.b].name) + '   step ' + (k + 1) + ' of ' + N + '</div><h2 id="sh-title" class="vt">' + esc(n.t) + '</h2></div><button class="x" data-close aria-label="Close tutor">×</button></div><div class="sh-body tut">';
+  h += '<div class="tprog" role="list">' + T.steps.map((x, i) => '<button role="listitem" class="tp' + (i < k ? ' past' : i === k ? ' on' : '') + '" data-tgo="' + i + '" aria-label="Step ' + (i + 1) + (x.t ? ': ' + esc(x.t) : '') + '"' + (i === k ? ' aria-current="step"' : '') + '></button>').join('') + '</div>';
+  if (T.auto && k === 0) h += '<p class="tnote">The full walkthrough for this lesson comes when you reach its phase. For now the tutor takes the lesson one point at a time, and Ask Claude on any step gets you a hand.</p>';
+  if (k === 0 && T.gear) h += '<div class="tgear"><h4>Get these out</h4><ul>' + T.gear.map(g => '<li>' + fmt(g) + '</li>').join('') + '</ul></div>';
+  h += '<h3 class="tt vt">' + esc(s.t || 'Step ' + (k + 1)) + '</h3>';
+  if (s.fig) h += '<figure class="tfig">' + TF.fig(s.fig) + (s.cap ? '<figcaption>' + fmt(s.cap) + '</figcaption>' : '') + '</figure>';
+  h += '<div class="tsay">' + paras(s.say) + '</div>';
+  if (s.why) h += '<p class="twhy"><b>Why it matters:</b> ' + fmt(s.why) + '</p>';
+  if (s.do) { const dl = [].concat(s.do); h += '<div class="tdo"><h4>Your turn</h4>' + (dl.length > 1 ? '<ol>' + dl.map(x => '<li>' + fmt(x) + '</li>').join('') + '</ol>' : '<p>' + fmt(dl[0]) + '</p>') + '</div>'; }
+  if (s.code) h += codeBox(s.code, id + ':' + k + ':code');
+  if (s.mission) h += '<div class="mission"><h3>Mission</h3><p>' + fmt(n.mission) + '</p><p class="donewhen">Done when: ' + fmt(n.done) + '</p></div>';
+  (s.ask || []).forEach((q, qi) => {
+    const picks = st.picks[qi] || [], last = picks[picks.length - 1];
+    h += '<div class="tq"><p class="tqq"><span class="tql">Check</span> ' + fmt(q.q) + '</p><div class="topts">' + q.opts.map((o, oi) => {
+      const p = picks.includes(oi), c = p ? (o[1] === true ? ' ok' : o[1] === false ? ' no' : ' fix') : '';
+      return '<button class="topt' + c + '" data-tpick="' + qi + ':' + oi + '" aria-pressed="' + p + '">' + fmt(o[0]) + '</button>';
+    }).join('') + '</div>';
+    if (last != null) { const o = q.opts[last]; h += '<p class="tfb ' + (o[1] === true ? 'ok' : o[1] === false ? 'no' : 'fix') + '" role="status">' + (o[1] === false ? '<b>Not quite.</b> ' : o[1] === null ? '<b>Try this:</b> ' : '') + fmt(o[2]) + '</p>'; }
+    h += '</div>';
+  });
+  const H = s.hints || [];
+  if (H.length || s.show || s.showCode) {
+    h += '<div class="thints">';
+    H.slice(0, st.hints).forEach((x, i) => { h += '<p class="thint"><b>Hint ' + (i + 1) + '</b> ' + fmt(x) + '</p>'; });
+    if (st.shown) h += '<div class="tshow"><h4>Answer</h4>' + (s.show ? '<p>' + fmt(s.show) + '</p>' : '') + (s.showCode ? codeBox(s.showCode, id + ':' + k + ':showCode') : '') + '</div>';
+    if (st.hints < H.length) h += '<button class="btn ghost" data-thint>' + (st.hints ? 'Another hint' : 'Stuck? Get a hint') + ' (' + (st.hints + 1) + ' of ' + H.length + ')</button>';
+    else if ((s.show || s.showCode) && !st.shown) h += '<button class="btn ghost" data-tshow>Show me the answer</button>';
+    h += '</div>';
+  }
+  h += '<div class="task"><a class="btn ghost" href="https://claude.ai/new?q=' + encodeURIComponent(claudePrompt(id, k)) + '" target="_blank" rel="noopener" data-askclaude="' + id + ':' + k + '">Ask Claude about this step</a><span class="muted">Opens Claude with this step filled in. Add what\'s going wrong at the end.</span></div>';
+  h += '<div class="tnav">' + (k > 0 ? '<button class="btn ghost" data-tgo="' + (k - 1) + '">Back</button>' : '<button class="btn ghost" data-open="' + id + '">Lesson page</button>');
+  if (k < N - 1) h += '<button class="btn primary" data-tgo="' + (k + 1) + '">Next: ' + esc(T.steps[k + 1].t || 'step ' + (k + 2)) + '</button>';
+  else if (d) h += '<span class="okline">[x] ' + id + ' complete</span>';
+  else if (lock) h += '<span class="warn">' + esc(lock.text) + '</span>';
+  else h += '<button class="btn primary" data-complete="' + id + '">Mark ' + id + ' complete</button>';
+  h += '</div>';
+  if (k === N - 1 && !s.mission) h += '<p class="donewhen">Done when: ' + fmt(n.done) + '</p>';
+  return h + '</div>';
+}
+function openTutor(id, step) {
+  const T = tutorFor(id), saved = S.tu[id] || 0, N = T.steps.length;
+  const start = step != null ? step : (isDone(id) && saved >= N - 1 ? 0 : saved);
+  ui.tut = { id, step: Math.max(0, Math.min(start, N - 1)), hints: 0, shown: false, picks: {} };
+  openSheet('tutor', id);
+}
+function tutorGo(i) {
+  const st = ui.tut; if (!st) return;
+  const N = tutorFor(st.id).steps.length; i = Math.max(0, Math.min(i, N - 1));
+  ui.tut = { id: st.id, step: i, hints: 0, shown: false, picks: {} };
+  if (i > (S.tu[st.id] || 0)) { put('tu', st.id, i); commit(); } else render();
+  $('#sheet').scrollTop = 0;
+}
+
 /* ---------- sheets: lesson, photo, sys ---------- */
 function lessonHTML(id) {
   const n = NODE[id], d = isDone(id), lock = d ? null : nodeLock(n), wait = d ? [] : waitingOn(n), ph = phaseById(n.phase);
@@ -657,6 +734,8 @@ function lessonHTML(id) {
   let h = '<div class="sh-head"><span class="big">' + n.id + '</span><div><div class="sh-br">' + esc(BR[n.b].name) + '   phase ' + ph.id + ' ' + esc(ph.name) + '   ' + minsLabel(n.mins) + '   +' + n.xp + ' xp</div><h2 id="sh-title" class="vt">' + esc(n.t) + '</h2></div><button class="x" data-close aria-label="Close lesson">×</button></div><div class="sh-body">';
   if (lock) h += '<p class="warn">' + esc(lock.text) + '. Read ahead freely; you can mark it complete once it opens.</p>';
   if (wait.length) h += '<p class="warn">Waiting on ' + esc(wait.map(p => p.name + etaLabel(p)).join('; ')) + '. Mark the part arrived in the quartermaster when it lands.</p>';
+  const tsaved = S.tu[id], tN = tutorFor(id).steps.length;
+  h += '<div class="tcta"><button class="btn primary" data-tutor="' + id + '">' + (tsaved && !d ? 'Back to the tutor' : 'Walk me through it') + '</button><span class="muted">' + (tsaved && !d ? 'step ' + (tsaved + 1) + ' of ' + tN : TUTOR[id] ? tN + ' steps, hints before answers' : 'one point at a time') + '</span></div>';
   h += '<p class="lead">' + fmt(n.why) + '</p><ul class="learn">' + n.learn.map(x => '<li>' + fmt(x) + '</li>').join('') + '</ul>';
   if (n.cmd) h += '<table class="cmdt"><tbody>' + n.cmd.map(([c, ds]) => '<tr><td><code>' + esc(c) + '</code></td><td>' + esc(ds) + '</td><td style="text-align:right"><button class="copy" data-copy="' + esc(c) + '" aria-label="Copy ' + esc(c) + '">Copy</button></td></tr>').join('') + '</tbody></table>';
   if (n.code) h += '<div class="code"><button class="copy" data-copycode="' + n.id + '">Copy</button><pre><code>' + esc(n.code) + '</code></pre></div>';
@@ -703,18 +782,19 @@ function openSheet(kind, id) {
   ui.lesson = kind === 'lesson' ? id : '__' + kind; ui.sheetArg = id;
   const sh = $('#sheet'); sh.hidden = false; sh.innerHTML = sheetHTML(); sh.scrollTop = 0; hydratePhotos(sh);
   requestAnimationFrame(() => { sh.classList.add('on'); $('#scrim').classList.add('on'); const x = sh.querySelector('[data-close]'); if (x) x.focus({ preventScroll: true }); });
-  const want = kind === 'lesson' ? 'node-' + id.toLowerCase() : kind === 'sys' ? 'sys' : null;
+  const want = kind === 'lesson' ? 'node-' + id.toLowerCase() : kind === 'tutor' ? 'tutor-' + id.toLowerCase() : kind === 'sys' ? 'sys' : null;
   if (want && location.hash.slice(1) !== want) { history.pushState(null, '', '#' + want); ui.pushed = true; }
 }
 function sheetHTML() {
   if (ui.lesson === '__sys') return sysHTML();
+  if (ui.lesson === '__tutor') return NODE[ui.sheetArg] ? tutorHTML(ui.sheetArg) : '';
   if (ui.lesson === '__photo') return '<div class="sh-head"><span></span><h2 id="sh-title" class="vt">Photo</h2><button class="x" data-close aria-label="Close photo">×</button></div><div class="sh-body"><img class="photo-full" data-pid="' + esc(ui.sheetArg) + '" alt=""></div>';
   return NODE[ui.lesson] ? lessonHTML(ui.lesson) : '';
 }
 const openLesson = id => NODE[id] && openSheet('lesson', id);
 function closeSheet(fromHistory) {
   if (!ui.lesson) return;
-  const hadHash = /^(node-|sys$)/.test(location.hash.slice(1));
+  const hadHash = /^(node-|tutor-|sys$)/.test(location.hash.slice(1));
   ui.lesson = null;
   const sh = $('#sheet'); sh.classList.remove('on'); $('#scrim').classList.remove('on');
   setTimeout(() => { if (!ui.lesson) { sh.hidden = true; sh.innerHTML = ''; } }, 240);
@@ -751,6 +831,10 @@ function readHash() {
   if (h.startsWith('node-')) {
     const id = h.slice(5).toUpperCase();
     if (NODE[id]) { if (!['skills', 'route', 'ops'].includes(ui.view)) ui.view = 'skills'; ui.branch = NODE[id].b; render(); if (ui.lesson !== id) { ui.lesson = null; openSheet('lesson', id); } return; }
+  }
+  if (h.startsWith('tutor-')) {
+    const id = h.slice(6).toUpperCase();
+    if (NODE[id]) { if (!['skills', 'route', 'ops'].includes(ui.view)) ui.view = 'skills'; ui.branch = NODE[id].b; render(); if (!(ui.lesson === '__tutor' && ui.sheetArg === id)) { ui.lesson = null; openTutor(id); } return; }
   }
   if (h === 'sys') { render(); if (ui.lesson !== '__sys') { ui.lesson = null; openSheet('sys'); } return; }
   if (ui.lesson) closeSheet(true);
@@ -809,6 +893,19 @@ document.addEventListener('click', async ev => {
   if (a('data-branchto') != null) { ui.branch = a('data-branchto'); return go('skills'); }
   if (a('data-branch') != null) { ui.branch = a('data-branch'); return render(); }
   if (a('data-complete') != null) return complete(a('data-complete'));
+  if (a('data-tutor') != null) return openTutor(a('data-tutor'));
+  if (a('data-tgo') != null) return tutorGo(Number(a('data-tgo')));
+  if (a('data-tpick') != null && ui.tut) {
+    const [qi, oi] = a('data-tpick').split(':').map(Number), pk = ui.tut.picks[qi] = (ui.tut.picks[qi] || []).filter(x => x !== oi).concat(oi);
+    const s = tutorFor(ui.tut.id).steps[ui.tut.step], o = s.ask && s.ask[qi] && s.ask[qi].opts[oi];
+    if (o && o[1] === true) { SFX.done(); HAP.done(); }
+    render(); const fb = document.querySelectorAll('#sheet .tq')[qi]; if (fb) { const f = fb.querySelector('.tfb'); if (f) f.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    return pk;
+  }
+  if (a('data-thint') != null && ui.tut) { ui.tut.hints++; return render(); }
+  if (a('data-tshow') != null && ui.tut) { ui.tut.shown = true; return render(); }
+  if (a('data-copyt') != null) { const [id, k, f] = a('data-copyt').split(':'), s = tutorFor(id).steps[Number(k)]; return copyText(s[f], 'Code copied'); }
+  if (a('data-askclaude') != null) { const [id, k] = a('data-askclaude').split(':'); try { navigator.clipboard.writeText(claudePrompt(id, Number(k))).catch(() => {}); } catch (e) {} return; }
   if (a('data-undo') != null) { put('done', a('data-undo'), null); return commit(a('data-undo') + ' marked not done'); }
   if (a('data-copy') != null) return copyText(a('data-copy'));
   if (a('data-copycode') != null) return copyText(NODE[a('data-copycode')].code, 'Code copied');

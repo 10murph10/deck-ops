@@ -166,7 +166,7 @@ const NODES = [
   { id: 'E1', b: 'elec', phase: 1, t: 'Blink', mins: 30, xp: 10, req: [], needs: ['arduino'],
     why: 'Uploading a program and watching hardware respond is the core loop of every gadget you\'ll build.',
     learn: [
-      'Install the Arduino IDE on your laptop. Plug the board in, then pick the board (Arduino Uno for most starter kits) and its port in the IDE.',
+      'Install the Arduino IDE on your computer. Plug the board in, then pick the board (Arduino Uno, which is right for the Elegoo UNO too) and its port (COM3 or similar on Windows) in the IDE.',
       'Open File > Examples > 01.Basics > Blink and press Upload (the right arrow).',
       'A sketch has two parts: `setup()` runs once, `loop()` runs forever. Blink turns pin 13 on, waits 1000 ms, turns it off, waits.',
       'Change both 1000s to 200 and upload again. You just changed what the hardware does with code.'
@@ -181,7 +181,7 @@ const NODES = [
     learn: [
       'The holes are joined in strips: each short row of five is one connection, and the long rails down the sides carry power (+) and ground (−).',
       'An LED only works one way round. The long leg (+) goes toward the pin, the short leg toward ground. A flat edge on the rim marks the short side.',
-      'An LED with no resistor draws too much current and dies. Put a 220 Ω resistor (red, red, brown bands) in series.',
+      'An LED with no resistor draws too much current and dies. Put a 220 Ω resistor in series. On 5-band resistors that\'s red, red, black, black, brown; on 4-band ones, red, red, brown, gold.',
       'The circuit: pin 13, then the resistor, then the LED\'s long leg; the LED\'s short leg to GND.'
     ],
     mission: 'Wire an external LED to pin 13 through a 220 Ω resistor and run your SOS sketch on it.',
@@ -195,9 +195,9 @@ const NODES = [
       'Ohm\'s law: V = I × R. Rearranged, I = V ÷ R and R = V ÷ I.',
       'Worked example: a pin gives 5 V and a red LED drops about 2 V, leaving 3 V across the resistor. For 15 mA, R = 3 ÷ 0.015 = 200 Ω, so use the next standard value up, 220 Ω.',
       'Power is P = V × I, in watts. It tells you how hot a part gets and how fast a battery drains.',
-      'Resistor bands: the first two are digits, the third is how many zeros. Red, red, brown is 2, 2, one zero: 220 Ω.'
+      'Resistor bands are digits, then how many zeros. 5-band: three digits, then the zeros (red, red, black, black, brown is 220 and no zeros). 4-band: two digits, then the zeros (red, red, brown is 22 and one zero). Both are 220 Ω.'
     ],
-    mission: 'Work out the resistor for a 20 mA LED at 5 V with a 2 V drop. Then wire two LEDs, one on 220 Ω and one on 1 kΩ (brown, black, red), and compare.',
+    mission: 'Work out the resistor for a 20 mA LED at 5 V with a 2 V drop. Then wire two LEDs, one on 220 Ω and one on 1 kΩ (5 bands: brown, black, black, brown, brown), and compare.',
     done: 'You got 150 Ω and can explain why the 1 kΩ LED is dimmer.',
     terms: ['voltage', 'current', 'ohms', 'watt'] },
 
@@ -219,10 +219,10 @@ const NODES = [
     learn: [
       '`analogRead(A0)` measures a voltage between 0 and 5 V and returns a number from 0 to 1023.',
       '`Serial.begin(9600)` and `Serial.println(value)` send readings to your laptop. Open Tools > Serial Monitor at 9600 baud to see them, or Serial Plotter for a live graph.',
-      'Light sensors are usually wired as a voltage divider: sensor from 5 V to A0, a 10 kΩ resistor from A0 to GND. Follow your kit\'s guide for its exact parts.',
+      'Your kit\'s photoresistor is wired as a voltage divider: photoresistor from 5 V to A0, a 10 kΩ resistor from A0 to GND.',
       'Watching the number move as you cover the sensor is the moment it clicks.'
     ],
-    mission: 'Wire a light or temperature sensor from your kit and stream its readings to the Serial Plotter.',
+    mission: 'Wire the photoresistor from your kit and stream its readings to the Serial Plotter.',
     done: 'The plotter line moves when you cover or warm the sensor.',
     terms: ['analog', 'serial', 'baud'] },
 
