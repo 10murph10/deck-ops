@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const [ma, mi, pa] = pkg.version.split('.').map(Number);
 
-// 1. Manifest permissions + camera intent query
+// 1. Manifest permissions + camera, text-to-speech and speech recognition intent queries
 const mf = 'android/app/src/main/AndroidManifest.xml';
 let m = readFileSync(mf, 'utf8');
 const perms = [
@@ -12,9 +12,11 @@ const perms = [
   '<uses-permission android:name="android.permission.VIBRATE" />',
   '<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />',
   '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />',
-  '<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />'
+  '<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />',
+  '<uses-permission android:name="android.permission.RECORD_AUDIO" />'
 ].filter(p => !m.includes(p.match(/name="([^"]+)"/)[1] + '"'));
-const queries = m.includes('IMAGE_CAPTURE') ? '' : '\n    <queries>\n        <intent>\n            <action android:name="android.media.action.IMAGE_CAPTURE" />\n        </intent>\n    </queries>';
+const wanted = ['android.media.action.IMAGE_CAPTURE', 'android.intent.action.TTS_SERVICE', 'android.speech.RecognitionService'].filter(x => !m.includes(x));
+const queries = wanted.length ? '\n    <queries>\n' + wanted.map(x => '        <intent>\n            <action android:name="' + x + '" />\n        </intent>').join('\n') + '\n    </queries>' : '';
 m = m.replace('</manifest>', '    ' + perms.join('\n    ') + queries + '\n</manifest>');
 writeFileSync(mf, m);
 

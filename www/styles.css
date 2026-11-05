@@ -391,3 +391,9 @@ textarea{width:100%;min-height:110px;resize:vertical;line-height:1.5}
 .tf-tag{fill:var(--hi);font-family:var(--body);font-size:10px}
 .tf-hl{fill:rgba(var(--ph-rgb),.16);stroke:var(--ph);stroke-width:.8}
 .tf-hl.alt{fill:rgba(var(--draft-rgb),.16);stroke:var(--draft)}
+.tvoice{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.tvoice .chip{margin:0}
+.tlisten{font-size:12px;color:var(--hi);margin:0 0 12px;display:flex;gap:8px;align-items:center}
+.tlisten .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);animation:tl 1.2s ease-in-out infinite;flex:none}
+@keyframes tl{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.tlisten .dot{animation:none}}

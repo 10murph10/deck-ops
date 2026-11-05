@@ -4,4 +4,6 @@ import { App } from '@capacitor/app';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { LocalNotifications } from '@capacitor/local-notifications';
-window.Cap = { Capacitor, App, Camera, CameraResultType, CameraSource, Haptics, ImpactStyle, NotificationType, LocalNotifications };
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { SpeechRecognition } from '@capacitor-community/speech-recognition';
+window.Cap = { Capacitor, App, Camera, CameraResultType, CameraSource, Haptics, ImpactStyle, NotificationType, LocalNotifications, TextToSpeech, SpeechRecognition };

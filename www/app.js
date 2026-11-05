@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -52,7 +52,7 @@ function normalize(d) {
 const readJSON = (k, d) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : d; } catch (e) { return d; } };
 let S = normalize(readJSON(LS, null) || readJSON('deck-ops-v1', null));
 let LOG = (readJSON(LSLOG, null) || readJSON('deck-ops-log-v1', []) || []).filter(e => e && e.id);
-const DEV = Object.assign({ theme: 'phosphor', sound: true, haptics: true, remNight: true, remParts: true, remUpd: true,
+const DEV = Object.assign({ theme: 'phosphor', sound: true, haptics: true, speak: false, remNight: true, remParts: true, remUpd: true,
   owner: '10murph10', repo: 'deck-ops-data', token: '', lastSync: 0, syncErr: '', bootSeen: false, introSeen: false }, readJSON(LSDEV, {}));
 
 const ui = { view: 'ops', branch: 'linux', phase: null, lesson: null, codexTab: 'terms', q: '', logTag: 'all',
@@ -676,6 +676,8 @@ function tutorHTML(id) {
   const d = isDone(id), lock = d ? null : nodeLock(n);
   let h = '<div class="sh-head"><span class="big">' + n.id + '</span><div><div class="sh-br">Tutor   ' + esc(BR[n.b].name) + '   step ' + (k + 1) + ' of ' + N + '</div><h2 id="sh-title" class="vt">' + esc(n.t) + '</h2></div><button class="x" data-close aria-label="Close tutor">×</button></div><div class="sh-body tut">';
   h += '<div class="tprog" role="list">' + T.steps.map((x, i) => '<button role="listitem" class="tp' + (i < k ? ' past' : i === k ? ' on' : '') + '" data-tgo="' + i + '" aria-label="Step ' + (i + 1) + (x.t ? ': ' + esc(x.t) : '') + '"' + (i === k ? ' aria-current="step"' : '') + '></button>').join('') + '</div>';
+  if (VOICE.canSpeak() || VOICE.canListen()) h += '<div class="tvoice">' + (VOICE.canSpeak() ? '<button class="chip" data-tspeak aria-pressed="' + !!DEV.speak + '">Read aloud</button>' : '') + (VOICE.canListen() ? '<button class="chip" data-tlisten aria-pressed="' + VOICE.listening() + '">Voice commands</button>' : '') + '</div>' +
+    (VOICE.listening() ? '<p class="tlisten" role="status"><span class="dot" aria-hidden="true"></span>Listening. Say next, back, repeat, hint, answer, option 1 to 4, or stop listening.</p>' : '');
   if (T.auto && k === 0) h += '<p class="tnote">The full walkthrough for this lesson comes when you reach its phase. For now the tutor takes the lesson one point at a time, and Ask Claude on any step gets you a hand.</p>';
   if (k === 0 && T.gear) h += '<div class="tgear"><h4>Get these out</h4><ul>' + T.gear.map(g => '<li>' + fmt(g) + '</li>').join('') + '</ul></div>';
   h += '<h3 class="tt vt">' + esc(s.t || 'Step ' + (k + 1)) + '</h3>';
@@ -718,6 +720,7 @@ function openTutor(id, step) {
   const start = step != null ? step : (isDone(id) && saved >= N - 1 ? 0 : saved);
   ui.tut = { id, step: Math.max(0, Math.min(start, N - 1)), hints: 0, shown: false, picks: {} };
   openSheet('tutor', id);
+  if (talkBack()) VOICE.say(stepSpeech(id, ui.tut.step));
 }
 function tutorGo(i) {
   const st = ui.tut; if (!st) return;
@@ -725,7 +728,158 @@ function tutorGo(i) {
   ui.tut = { id: st.id, step: i, hints: 0, shown: false, picks: {} };
   if (i > (S.tu[st.id] || 0)) { put('tu', st.id, i); commit(); } else render();
   $('#sheet').scrollTop = 0;
+  if (talkBack()) VOICE.say(stepSpeech(st.id, i)); else VOICE.hush();
 }
+const talkBack = () => DEV.speak || VOICE.listening();
+function tutorStep() { const st = ui.tut; return st ? tutorFor(st.id).steps[st.step] : null; }
+function tutorPick(qi, oi) {
+  const st = ui.tut, s = tutorStep(), q = s && s.ask && s.ask[qi], o = q && q.opts[oi]; if (!o) return;
+  st.picks[qi] = (st.picks[qi] || []).filter(x => x !== oi).concat(oi);
+  if (o[1] === true) { SFX.done(); HAP.done(); }
+  render(); const box = document.querySelectorAll('#sheet .tq')[qi]; if (box) { const f = box.querySelector('.tfb'); if (f) f.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  if (talkBack()) VOICE.say((o[1] === false ? 'Not quite. ' : o[1] === null ? 'Try this. ' : '') + o[2]);
+}
+function tutorHint() {
+  const st = ui.tut, s = tutorStep(); if (!s) return;
+  const H = s.hints || [];
+  if (st.hints < H.length) { st.hints++; render(); if (talkBack()) VOICE.say('Hint ' + st.hints + '. ' + H[st.hints - 1]); return; }
+  if (talkBack()) VOICE.say(s.show || s.showCode ? 'That\'s all the hints. Say answer to see the answer.' : 'There\'s no hint on this step. Say repeat to hear it again, or tap Ask Claude.');
+}
+function tutorAnswer() {
+  const st = ui.tut, s = tutorStep(); if (!s) return;
+  if (!s.show && !s.showCode) { if (talkBack()) VOICE.say('This step has no hidden answer. Say hint, or repeat.'); return; }
+  if (st.hints < (s.hints || []).length) { st.hints++; render(); if (talkBack()) VOICE.say('Try this hint first. Hint ' + st.hints + '. ' + s.hints[st.hints - 1]); return; }
+  st.shown = true; render(); if (talkBack()) VOICE.say('Here\'s the answer. ' + (s.show || '') + (s.showCode ? ' The code is on screen.' : ''));
+}
+
+/* ---------- tutor voice: read aloud and voice commands ---------- */
+function speakable(t) {
+  return String(t == null ? '' : t).replace(/`/g, '').replace(/\(\.\.\.\)/g, '')
+    .replace(/\b1\s?kΩ/g, 'one kilo-ohm').replace(/(\d)\s?kΩ(?= [a-z])/g, '$1 kilo-ohm').replace(/(\d)\s?kΩ/g, '$1 kilo-ohms').replace(/(\d)\s?Ω(?= [a-z])/g, '$1 ohm').replace(/(\d)\s?Ω/g, '$1 ohms').replace(/Ω/g, 'ohms')
+    .replace(/(\d)\s?mA\b/g, '$1 milliamps').replace(/(\d)\s?ms\b/g, '$1 milliseconds').replace(/(\d)\s?V\b/g, '$1 volts')
+    .replace(/\(\+\)/g, '(plus)').replace(/\(−\)/g, '(minus)').replace(/×/g, ' times ').replace(/÷/g, ' divided by ').replace(/±/g, ' plus or minus ').replace(/−/g, ' minus ')
+    .replace(/\bGND\b/g, 'ground').replace(/\bUNO\b/g, 'Uno').replace(/\bCOM(\d)/g, 'com $1').replace(/\b([a-j])(\d{1,2})\b/g, '$1 $2')
+    .replace(/==/g, ' equals ').replace(/;/g, ',').replace(/\s+/g, ' ').trim();
+}
+function stepSpeech(id, k) {
+  const T = tutorFor(id), s = T.steps[k], out = ['Step ' + (k + 1) + ' of ' + T.steps.length + '. ' + (s.t || '') + '.'];
+  if (k === 0 && T.gear) out.push('Get these out: ' + T.gear.join(', ') + '.');
+  [].concat(s.say || []).forEach(x => out.push(x));
+  if (s.why) out.push('Why it matters: ' + s.why);
+  if (s.do) { const dl = [].concat(s.do); out.push('Your turn.'); dl.forEach((x, i) => out.push((dl.length > 1 ? (i + 1) + '. ' : '') + x)); }
+  if (s.code) out.push('The code is on screen.');
+  if (s.mission) out.push('Mission: ' + NODE[id].mission);
+  (s.ask || []).forEach(q => { out.push('Check. ' + q.q); q.opts.forEach((o, oi) => out.push('Option ' + (oi + 1) + ': ' + o[0] + '.')); });
+  return out.join(' ');
+}
+const NUMW = { one: 1, won: 1, first: 1, 1: 1, two: 2, to: 2, too: 2, second: 2, 2: 2, three: 3, tree: 3, third: 3, 3: 3, four: 4, for: 4, fourth: 4, 4: 4 };
+function parseCmd(raw) {
+  const t = ' ' + String(raw || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
+  if (/ (stop listening|stop voice|voice off|go to sleep) /.test(t)) return { c: 'sleep' };
+  const m = / (?:option|number|pick|choose|answer is) (\w+) /.exec(t);
+  if (m && NUMW[m[1]]) return { c: 'opt', n: NUMW[m[1]] };
+  if (/^ (one|two|three|four|1|2|3|4) $/.test(t)) return { c: 'opt', n: NUMW[t.trim()] };
+  if (/ (go back|back|previous) /.test(t)) return { c: 'back' };
+  if (/ (next|continue|go on|got it) /.test(t)) return { c: 'next' };
+  if (/ (repeat|again|say that|read it|read that) /.test(t)) return { c: 'repeat' };
+  if (/ (hint|clue|help|stuck) /.test(t)) return { c: 'hint' };
+  if (/ (answer|show me) /.test(t)) return { c: 'answer' };
+  if (/ mark (it )?(complete|done) /.test(t)) return { c: 'complete' };
+  if (/ (quiet|stop|shush|pause|shut up) /.test(t)) return { c: 'hush' };
+  return null;
+}
+function runVoice(c) {
+  const st = ui.tut; if (!st || ui.lesson !== '__tutor') { VOICE.stop(); return; }
+  const T = tutorFor(st.id), s = T.steps[st.step], last = st.step >= T.steps.length - 1;
+  HAP.tap();
+  if (c.c === 'sleep') { VOICE.stop(); render(); VOICE.say('Voice commands off.'); return; }
+  if (c.c === 'next') { if (last) VOICE.say('That was the last step. Say mark complete when you\'re done.'); else tutorGo(st.step + 1); return; }
+  if (c.c === 'back') { if (st.step === 0) VOICE.say('This is the first step.'); else tutorGo(st.step - 1); return; }
+  if (c.c === 'repeat') return VOICE.say(stepSpeech(st.id, st.step));
+  if (c.c === 'hush') return VOICE.hush();
+  if (c.c === 'hint') return tutorHint();
+  if (c.c === 'answer') return tutorAnswer();
+  if (c.c === 'opt') {
+    const qs = s.ask || [], qi = qs.findIndex((q, i) => !(st.picks[i] || []).some(o => q.opts[o][1] === true));
+    if (qi < 0) return VOICE.say(qs.length ? 'You\'ve answered the checks on this step. Say next.' : 'There\'s no question on this step.');
+    if (c.n > qs[qi].opts.length) return VOICE.say('There are only ' + qs[qi].opts.length + ' options.');
+    return tutorPick(qi, c.n - 1);
+  }
+  if (c.c === 'complete') {
+    if (last && !isDone(st.id) && !nodeLock(NODE[st.id])) { complete(st.id); VOICE.say(st.id + ' complete. Nice work.'); }
+    else { const lk = nodeLock(NODE[st.id]); VOICE.say(isDone(st.id) ? 'This lesson is already complete.' : !last ? 'Get to the last step first.' : lk ? lk.text + ', so this one can\'t be marked yet.' : 'Get to the last step first.'); }
+  }
+}
+const VOICE = (() => {
+  const TTS = () => (NATIVE && Cap.TextToSpeech) || null, SR = () => (NATIVE && Cap.SpeechRecognition) || null;
+  const WSR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const canSpeak = () => !!(TTS() || (!NATIVE && 'speechSynthesis' in window));
+  const canListen = () => !!(SR() || (!NATIVE && WSR));
+  let gen = 0, speaking = false, on = false, active = false, handled = false, lastCmd = 0, wrec = null, dog = null, hooked = false;
+  function earsOff() {
+    if (!active) return; active = false;
+    try { if (SR()) SR().stop().catch(() => {}); else if (wrec) wrec.abort(); } catch (e) {}
+  }
+  function earsOn() {
+    if (!on || speaking || active || document.visibilityState !== 'visible') return;
+    if (Date.now() - lastCmd > 120000) { stop(); render(); toast('Voice commands off after two quiet minutes'); return; }
+    active = true; handled = false;
+    if (SR()) { SR().start({ language: 'en-US', maxResults: 3, partialResults: true, popup: false }).catch(() => { active = false; }); return; }
+    if (!wrec) {
+      wrec = new WSR(); wrec.lang = 'en-US'; wrec.continuous = true; wrec.interimResults = true; wrec.maxAlternatives = 3;
+      wrec.onresult = e => { const r = e.results[e.results.length - 1]; heard(Array.from(r).map(a => a.transcript)); };
+      wrec.onend = () => { active = false; if (on) setTimeout(earsOn, 300); };
+      wrec.onerror = () => { active = false; };
+    }
+    try { wrec.start(); } catch (e) { active = false; }
+  }
+  function heard(list) {
+    if (handled || !on || speaking) return;
+    for (const m of list) { const c = parseCmd(m); if (c) { handled = true; lastCmd = Date.now(); earsOff(); runVoice(c); return; } }
+  }
+  async function say(text) {
+    text = speakable(text); if (!text || !canSpeak()) return;
+    const my = ++gen; speaking = true; earsOff();
+    try {
+      if (TTS()) await TTS().speak({ text, lang: 'en-US', rate: 1.0, pitch: 1.0, volume: 1.0, queueStrategy: 0 });
+      else await new Promise(res => {
+        const done = () => { clearTimeout(tm); res(); }, tm = setTimeout(done, Math.max(4000, text.length * 90));
+        try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.onend = u.onerror = done; speechSynthesis.speak(u); } catch (e) { done(); }
+      });
+    } catch (e) {}
+    if (my === gen) { speaking = false; if (on) setTimeout(earsOn, 250); }
+  }
+  function hush() {
+    gen++; speaking = false;
+    try { if (TTS()) TTS().stop().catch(() => {}); else if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
+    if (on) setTimeout(earsOn, 250);
+  }
+  async function start() {
+    if (!canListen()) { toast('Voice commands aren\'t available here.'); return false; }
+    if (SR()) {
+      try {
+        const av = await SR().available(); if (!av || !av.available) { toast('Voice commands need Google speech services on the phone.'); return false; }
+        let p = await SR().checkPermissions(); if (p.speechRecognition !== 'granted') p = await SR().requestPermissions();
+        if (p.speechRecognition !== 'granted') { toast('Allow the microphone for Deck Ops to use voice commands.'); return false; }
+        if (!hooked) {
+          hooked = true;
+          SR().addListener('partialResults', d => heard((d && d.matches) || []));
+          SR().addListener('listeningState', d => { if (d && d.status === 'stopped') { active = false; if (on) setTimeout(earsOn, 300); } });
+        }
+      } catch (e) { toast('Couldn\'t start voice commands.'); return false; }
+    }
+    on = true; lastCmd = Date.now();
+    clearInterval(dog);
+    dog = setInterval(async () => {
+      if (!on) return;
+      if (SR() && active && !speaking) { try { const r = await SR().isListening(); if (r && r.listening === false) active = false; } catch (e) {} }
+      earsOn();
+    }, 2500);
+    earsOn(); return true;
+  }
+  function stop() { on = false; clearInterval(dog); earsOff(); }
+  return { say, hush, start, stop, canSpeak, canListen, listening: () => on, heard };
+})();
 
 /* ---------- sheets: lesson, photo, sys ---------- */
 function lessonHTML(id) {
@@ -754,7 +908,7 @@ function sysHTML() {
   const sc = S.sched;
   let h = '<div class="sh-head"><span></span><div><div class="sh-br">Deck Ops ' + APP_VERSION + (NATIVE ? '   android app' : '   web app') + '</div><h2 id="sh-title" class="vt">Settings</h2></div><button class="x" data-close aria-label="Close settings">×</button></div><div class="sh-body">';
   h += '<div class="set"><h3>Look</h3><div>' + THEMES.map(([k, l]) => '<button class="chip" data-theme="' + k + '" aria-pressed="' + (DEV.theme === k) + '">' + l + '</button>').join('') + '</div></div>';
-  h += '<div class="set"><h3>Sound and feel</h3>' + tog('sound', 'Terminal sounds', 'Key clicks, boot beep, completion chirp', DEV.sound) + tog('haptics', 'Vibration', 'A tap on keys, a buzz on completion', DEV.haptics) + '</div>';
+  h += '<div class="set"><h3>Sound and feel</h3>' + tog('sound', 'Terminal sounds', 'Key clicks, boot beep, completion chirp', DEV.sound) + tog('haptics', 'Vibration', 'A tap on keys, a buzz on completion', DEV.haptics) + (VOICE.canSpeak() ? tog('speak', 'Tutor reads aloud', 'Reads each tutor step in your phone\'s voice', DEV.speak) : '') + '</div>';
   h += '<div class="set"><h3>Reminders</h3>';
   if (!REM.ok()) h += '<p class="muted">Reminders run in the Android app. The deck night schedule below still syncs to it.</p>';
   else if (ui.notif !== 'granted') h += '<p class="warn">Notifications are off for Deck Ops.</p><div class="row" style="margin-bottom:10px"><button class="btn primary" data-asknotif>Allow notifications</button></div>';
@@ -778,6 +932,7 @@ function sysHTML() {
   return h + '</div>';
 }
 function openSheet(kind, id) {
+  if (kind !== 'tutor') { VOICE.stop(); VOICE.hush(); }
   if (!ui.lesson) ui.lastFocus = document.activeElement;
   ui.lesson = kind === 'lesson' ? id : '__' + kind; ui.sheetArg = id;
   const sh = $('#sheet'); sh.hidden = false; sh.innerHTML = sheetHTML(); sh.scrollTop = 0; hydratePhotos(sh);
@@ -794,6 +949,7 @@ function sheetHTML() {
 const openLesson = id => NODE[id] && openSheet('lesson', id);
 function closeSheet(fromHistory) {
   if (!ui.lesson) return;
+  if (ui.lesson === '__tutor') { VOICE.stop(); VOICE.hush(); }
   const hadHash = /^(node-|tutor-|sys$)/.test(location.hash.slice(1));
   ui.lesson = null;
   const sh = $('#sheet'); sh.classList.remove('on'); $('#scrim').classList.remove('on');
@@ -895,15 +1051,16 @@ document.addEventListener('click', async ev => {
   if (a('data-complete') != null) return complete(a('data-complete'));
   if (a('data-tutor') != null) return openTutor(a('data-tutor'));
   if (a('data-tgo') != null) return tutorGo(Number(a('data-tgo')));
-  if (a('data-tpick') != null && ui.tut) {
-    const [qi, oi] = a('data-tpick').split(':').map(Number), pk = ui.tut.picks[qi] = (ui.tut.picks[qi] || []).filter(x => x !== oi).concat(oi);
-    const s = tutorFor(ui.tut.id).steps[ui.tut.step], o = s.ask && s.ask[qi] && s.ask[qi].opts[oi];
-    if (o && o[1] === true) { SFX.done(); HAP.done(); }
-    render(); const fb = document.querySelectorAll('#sheet .tq')[qi]; if (fb) { const f = fb.querySelector('.tfb'); if (f) f.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-    return pk;
+  if (a('data-tpick') != null && ui.tut) { const [qi, oi] = a('data-tpick').split(':').map(Number); return tutorPick(qi, oi); }
+  if (a('data-thint') != null && ui.tut) return tutorHint();
+  if (a('data-tshow') != null && ui.tut) return tutorAnswer();
+  if (a('data-tspeak') != null && ui.tut) { DEV.speak = !DEV.speak; saveDev(); render(); if (DEV.speak) VOICE.say(stepSpeech(ui.tut.id, ui.tut.step)); else VOICE.hush(); return; }
+  if (a('data-tlisten') != null && ui.tut) {
+    if (VOICE.listening()) { VOICE.stop(); render(); return; }
+    const ok = await VOICE.start(); render();
+    if (ok) VOICE.say('Listening. Say next, back, repeat, hint, or answer.');
+    return;
   }
-  if (a('data-thint') != null && ui.tut) { ui.tut.hints++; return render(); }
-  if (a('data-tshow') != null && ui.tut) { ui.tut.shown = true; return render(); }
   if (a('data-copyt') != null) { const [id, k, f] = a('data-copyt').split(':'), s = tutorFor(id).steps[Number(k)]; return copyText(s[f], 'Code copied'); }
   if (a('data-askclaude') != null) { const [id, k] = a('data-askclaude').split(':'); try { navigator.clipboard.writeText(claudePrompt(id, Number(k))).catch(() => {}); } catch (e) {} return; }
   if (a('data-undo') != null) { put('done', a('data-undo'), null); return commit(a('data-undo') + ' marked not done'); }
@@ -1029,7 +1186,7 @@ window.addEventListener('popstate', readHash);
 window.addEventListener('hashchange', readHash);
 window.addEventListener('online', () => syncNow());
 window.addEventListener('offline', () => { ui.sync = ghReady() ? 'offline' : 'nosync'; renderStatus(); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { render(); syncNow(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { render(); syncNow(); } else if (VOICE.listening()) { VOICE.stop(); VOICE.hush(); } });
 let rt = null;
 window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (ui.view === 'route' && ui.layout !== (window.innerWidth >= 760 ? 'wide' : 'tall')) render(); }, 150); });
 
