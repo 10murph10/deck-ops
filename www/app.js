@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -52,7 +52,7 @@ function normalize(d) {
 const readJSON = (k, d) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : d; } catch (e) { return d; } };
 let S = normalize(readJSON(LS, null) || readJSON('deck-ops-v1', null));
 let LOG = (readJSON(LSLOG, null) || readJSON('deck-ops-log-v1', []) || []).filter(e => e && e.id);
-const DEV = Object.assign({ theme: 'phosphor', sound: true, haptics: true, speak: false, remNight: true, remParts: true, remUpd: true,
+const DEV = Object.assign({ theme: 'phosphor', sound: true, haptics: true, speak: false, akey: '', tmodel: 'claude-sonnet-5-5', remNight: true, remParts: true, remUpd: true,
   owner: '10murph10', repo: 'deck-ops-data', token: '', lastSync: 0, syncErr: '', bootSeen: false, introSeen: false }, readJSON(LSDEV, {}));
 
 const ui = { view: 'ops', branch: 'linux', phase: null, lesson: null, codexTab: 'terms', q: '', logTag: 'all',
@@ -676,8 +676,11 @@ function tutorHTML(id) {
   const d = isDone(id), lock = d ? null : nodeLock(n);
   let h = '<div class="sh-head"><span class="big">' + n.id + '</span><div><div class="sh-br">Tutor   ' + esc(BR[n.b].name) + '   step ' + (k + 1) + ' of ' + N + '</div><h2 id="sh-title" class="vt">' + esc(n.t) + '</h2></div><button class="x" data-close aria-label="Close tutor">×</button></div><div class="sh-body tut">';
   h += '<div class="tprog" role="list">' + T.steps.map((x, i) => '<button role="listitem" class="tp' + (i < k ? ' past' : i === k ? ' on' : '') + '" data-tgo="' + i + '" aria-label="Step ' + (i + 1) + (x.t ? ': ' + esc(x.t) : '') + '"' + (i === k ? ' aria-current="step"' : '') + '></button>').join('') + '</div>';
-  if (VOICE.canSpeak() || VOICE.canListen()) h += '<div class="tvoice">' + (VOICE.canSpeak() ? '<button class="chip" data-tspeak aria-pressed="' + !!DEV.speak + '">Read aloud</button>' : '') + (VOICE.canListen() ? '<button class="chip" data-tlisten aria-pressed="' + VOICE.listening() + '">Voice commands</button>' : '') + '</div>' +
-    (VOICE.listening() ? '<p class="tlisten" role="status"><span class="dot" aria-hidden="true"></span>Listening. Say next, back, repeat, hint, answer, option 1 to 4, or stop listening.</p>' : '');
+  if (VOICE.canSpeak() || VOICE.canListen()) h += '<div class="tvoice">' + (VOICE.canSpeak() ? '<button class="chip" data-tspeak aria-pressed="' + !!DEV.speak + '">Read aloud</button>' : '') + (VOICE.canListen() ? '<button class="chip" data-tlisten aria-pressed="' + VOICE.listening() + '">Talk</button>' : '') + '</div>' +
+    (VOICE.listening() ? '<p class="tlisten" role="status"><span class="dot" aria-hidden="true"></span>Listening. Ask a question out loud, or say next, back, repeat, hint, answer or option 2. Say stop listening to end.</p>' : '');
+  const mode = st.mode === 'ask' ? 'ask' : 'steps';
+  h += '<div class="ttabs" role="tablist"><button role="tab" data-tmode="steps" aria-selected="' + (mode === 'steps') + '">Steps</button><button role="tab" data-tmode="ask" aria-selected="' + (mode === 'ask') + '">Ask the tutor' + (TEACH.busy() ? ' …' : '') + '</button></div>';
+  if (mode === 'ask') return h + chatHTML(id, k) + '</div>';
   if (T.auto && k === 0) h += '<p class="tnote">The full walkthrough for this lesson comes when you reach its phase. For now the tutor takes the lesson one point at a time, and Ask Claude on any step gets you a hand.</p>';
   if (k === 0 && T.gear) h += '<div class="tgear"><h4>Get these out</h4><ul>' + T.gear.map(g => '<li>' + fmt(g) + '</li>').join('') + '</ul></div>';
   h += '<h3 class="tt vt">' + esc(s.t || 'Step ' + (k + 1)) + '</h3>';
@@ -725,7 +728,7 @@ function openTutor(id, step) {
 function tutorGo(i) {
   const st = ui.tut; if (!st) return;
   const N = tutorFor(st.id).steps.length; i = Math.max(0, Math.min(i, N - 1));
-  ui.tut = { id: st.id, step: i, hints: 0, shown: false, picks: {} };
+  ui.tut = { id: st.id, step: i, hints: 0, shown: false, picks: {}, mode: 'steps' };
   if (i > (S.tu[st.id] || 0)) { put('tu', st.id, i); commit(); } else render();
   $('#sheet').scrollTop = 0;
   if (talkBack()) VOICE.say(stepSpeech(st.id, i)); else VOICE.hush();
@@ -792,7 +795,8 @@ function runVoice(c) {
   const st = ui.tut; if (!st || ui.lesson !== '__tutor') { VOICE.stop(); return; }
   const T = tutorFor(st.id), s = T.steps[st.step], last = st.step >= T.steps.length - 1;
   HAP.tap();
-  if (c.c === 'sleep') { VOICE.stop(); render(); VOICE.say('Voice commands off.'); return; }
+  if (c.c === 'sleep') { VOICE.stop(); render(); VOICE.say('Talk off.'); return; }
+  if (c.c !== 'hush' && st.mode === 'ask') { st.mode = 'steps'; sheetRefresh(); }
   if (c.c === 'next') { if (last) VOICE.say('That was the last step. Say mark complete when you\'re done.'); else tutorGo(st.step + 1); return; }
   if (c.c === 'back') { if (st.step === 0) VOICE.say('This is the first step.'); else tutorGo(st.step - 1); return; }
   if (c.c === 'repeat') return VOICE.say(stepSpeech(st.id, st.step));
@@ -815,27 +819,40 @@ const VOICE = (() => {
   const WSR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const canSpeak = () => !!(TTS() || (!NATIVE && 'speechSynthesis' in window));
   const canListen = () => !!(SR() || (!NATIVE && WSR));
-  let gen = 0, speaking = false, on = false, active = false, handled = false, lastCmd = 0, wrec = null, dog = null, hooked = false;
-  function earsOff() {
-    if (!active) return; active = false;
-    try { if (SR()) SR().stop().catch(() => {}); else if (wrec) wrec.abort(); } catch (e) {}
+  let gen = 0, speaking = false, on = false, active = false, lgen = 0, lastCmd = 0, wrec = null, dog = null, held = 0, permOK = false;
+  function webOnce() {
+    return new Promise(res => {
+      let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+      try {
+        wrec = new WSR(); wrec.lang = 'en-US'; wrec.continuous = false; wrec.interimResults = false; wrec.maxAlternatives = 3;
+        wrec.onresult = e => { const r = e.results[e.results.length - 1]; fin(Array.from(r).map(x => x.transcript)); };
+        wrec.onend = () => fin([]); wrec.onerror = () => fin([]);
+        wrec.start();
+      } catch (e) { fin([]); }
+    });
   }
-  function earsOn() {
-    if (!on || speaking || active || document.visibilityState !== 'visible') return;
-    if (Date.now() - lastCmd > 120000) { stop(); render(); toast('Voice commands off after two quiet minutes'); return; }
-    active = true; handled = false;
-    if (SR()) { SR().start({ language: 'en-US', maxResults: 3, partialResults: true, popup: false }).catch(() => { active = false; }); return; }
-    if (!wrec) {
-      wrec = new WSR(); wrec.lang = 'en-US'; wrec.continuous = true; wrec.interimResults = true; wrec.maxAlternatives = 3;
-      wrec.onresult = e => { const r = e.results[e.results.length - 1]; heard(Array.from(r).map(a => a.transcript)); };
-      wrec.onend = () => { active = false; if (on) setTimeout(earsOn, 300); };
-      wrec.onerror = () => { active = false; };
-    }
-    try { wrec.start(); } catch (e) { active = false; }
+  async function listenOnce(max) {
+    const p = SR() ? SR().start({ language: 'en-US', maxResults: max || 3, partialResults: false, popup: false }).then(r => (r && r.matches) || []).catch(() => []) : webOnce();
+    const r = await Promise.race([p, new Promise(res => setTimeout(() => res(null), 20000))]);
+    if (r === null) { earsOff(); return []; }
+    return r;
+  }
+  function earsOff() { lgen++; if (!active) return; active = false; try { if (SR()) SR().stop().catch(() => {}); else if (wrec) wrec.abort(); } catch (e) {} }
+  async function earsOn() {
+    if (!on || speaking || held || active || document.visibilityState !== 'visible') return;
+    if (Date.now() - lastCmd > 180000) { stop(); render(); toast('Talk turned off after three quiet minutes'); return; }
+    active = true; const my = ++lgen;
+    const list = await listenOnce(3);
+    if (my !== lgen) return;
+    active = false;
+    if (list.length) heard(list);
+    if (on) setTimeout(earsOn, 250);
   }
   function heard(list) {
-    if (handled || !on || speaking) return;
-    for (const m of list) { const c = parseCmd(m); if (c) { handled = true; lastCmd = Date.now(); earsOff(); runVoice(c); return; } }
+    const text = String(list[0] || '').trim(); if (!text) return;
+    const words = text.split(/\s+/).length;
+    if (words <= 4) for (const m of list) { const c = parseCmd(m); if (c) { lastCmd = Date.now(); runVoice(c); return; } }
+    if (words >= 2 && api.onQuestion) { lastCmd = Date.now(); api.onQuestion(text); }
   }
   async function say(text) {
     text = speakable(text); if (!text || !canSpeak()) return;
@@ -847,39 +864,189 @@ const VOICE = (() => {
         try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.onend = u.onerror = done; speechSynthesis.speak(u); } catch (e) { done(); }
       });
     } catch (e) {}
-    if (my === gen) { speaking = false; if (on) setTimeout(earsOn, 250); }
+    if (my === gen) { speaking = false; if (on && !held) setTimeout(earsOn, 250); }
   }
   function hush() {
     gen++; speaking = false;
     try { if (TTS()) TTS().stop().catch(() => {}); else if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
-    if (on) setTimeout(earsOn, 250);
+    if (on && !held) setTimeout(earsOn, 250);
+  }
+  async function ready() {
+    if (!canListen()) { toast('Voice isn\'t available here.'); return false; }
+    if (SR() && !permOK) {
+      try {
+        const av = await SR().available(); if (!av || !av.available) { toast('Talking needs Google speech services on the phone.'); return false; }
+        let p = await SR().checkPermissions(); if (p.speechRecognition !== 'granted') p = await SR().requestPermissions();
+        if (p.speechRecognition !== 'granted') { toast('Allow the microphone for Deck Ops to talk to the tutor.'); return false; }
+        permOK = true;
+      } catch (e) { toast('Couldn\'t start the microphone.'); return false; }
+    }
+    return true;
   }
   async function start() {
-    if (!canListen()) { toast('Voice commands aren\'t available here.'); return false; }
-    if (SR()) {
-      try {
-        const av = await SR().available(); if (!av || !av.available) { toast('Voice commands need Google speech services on the phone.'); return false; }
-        let p = await SR().checkPermissions(); if (p.speechRecognition !== 'granted') p = await SR().requestPermissions();
-        if (p.speechRecognition !== 'granted') { toast('Allow the microphone for Deck Ops to use voice commands.'); return false; }
-        if (!hooked) {
-          hooked = true;
-          SR().addListener('partialResults', d => heard((d && d.matches) || []));
-          SR().addListener('listeningState', d => { if (d && d.status === 'stopped') { active = false; if (on) setTimeout(earsOn, 300); } });
-        }
-      } catch (e) { toast('Couldn\'t start voice commands.'); return false; }
-    }
-    on = true; lastCmd = Date.now();
-    clearInterval(dog);
-    dog = setInterval(async () => {
-      if (!on) return;
-      if (SR() && active && !speaking) { try { const r = await SR().isListening(); if (r && r.listening === false) active = false; } catch (e) {} }
-      earsOn();
-    }, 2500);
+    if (!(await ready())) return false;
+    on = true; lastCmd = Date.now(); clearInterval(dog); dog = setInterval(() => { if (on) earsOn(); }, 3000);
     earsOn(); return true;
   }
   function stop() { on = false; clearInterval(dog); earsOff(); }
-  return { say, hush, start, stop, canSpeak, canListen, listening: () => on, heard };
+  function hold(v) { held = Math.max(0, held + (v ? 1 : -1)); if (v) earsOff(); else if (on && !held) setTimeout(earsOn, 250); }
+  async function dictate() {
+    if (!(await ready())) return null;
+    hush(); held++; earsOff();
+    const list = await listenOnce(1);
+    held = Math.max(0, held - 1); if (on && !held) setTimeout(earsOn, 250);
+    return list[0] || null;
+  }
+  const api = { say, hush, start, stop, hold, dictate, canSpeak, canListen, listening: () => on, onQuestion: null };
+  return api;
 })();
+
+/* ---------- ask the tutor: a real teacher, through the Claude API ---------- */
+const TEACH = (() => {
+  const K = 'deckops.chat.';
+  let busy = false;
+  const load = id => { try { return JSON.parse(localStorage.getItem(K + id) || '[]'); } catch (e) { return []; } };
+  function save(id, list) {
+    list = list.slice(-40);
+    let n = 0; for (let i = list.length - 1; i >= 0; i--) if (list[i].img && ++n > 2) { delete list[i].img; list[i].had = true; }
+    try { localStorage.setItem(K + id, JSON.stringify(list)); }
+    catch (e) { list.forEach(m => { if (m.img) { delete m.img; m.had = true; } }); try { localStorage.setItem(K + id, JSON.stringify(list)); } catch (e2) {} }
+  }
+  function lessonBrief(id) {
+    const n = NODE[id], T = tutorFor(id), ph = PHASES.find(x => x.id === n.phase);
+    const L = ['Lesson ' + n.id + ': ' + n.t + ' (' + BR[n.b].name + ' track, phase ' + n.phase + (ph ? ' ' + ph.name : '') + ')', 'Why it matters: ' + plainText(n.why), 'Key points:'];
+    n.learn.forEach(x => L.push('- ' + plainText(x)));
+    L.push('Mission: ' + plainText(n.mission), 'Done when: ' + plainText(n.done));
+    if (n.code) L.push('Lesson code:\n' + n.code);
+    L.push('', 'The step-by-step walkthrough the app shows him:');
+    T.steps.forEach((x, i) => {
+      L.push('Step ' + (i + 1) + (x.t ? ': ' + x.t : ''));
+      [].concat(x.say || []).forEach(t => L.push('  ' + plainText(t)));
+      if (x.why) L.push('  Why: ' + plainText(x.why));
+      if (x.cap) L.push('  Diagram: ' + plainText(x.cap));
+      [].concat(x.do || []).forEach(t => L.push('  Do: ' + plainText(t)));
+      if (x.code) L.push('  Code shown:\n' + x.code);
+      (x.ask || []).forEach(q => L.push('  Check question: ' + plainText(q.q) + ' Options: ' + q.opts.map((o, oi) => (oi + 1) + ') ' + plainText(o[0]) + (o[1] === true ? ' [correct]' : '')).join('  ')));
+      (x.hints || []).forEach((h, hi) => L.push('  Hint ' + (hi + 1) + ': ' + plainText(h)));
+      if (x.show) L.push('  Answer: ' + plainText(x.show));
+      if (x.showCode) L.push('  Answer code:\n' + x.showCode);
+    });
+    return L.join('\n');
+  }
+  function system(id, k) {
+    const T = tutorFor(id), s = T.steps[k], done = Object.keys(S.done).filter(isDone).sort();
+    return [
+      { type: 'text', text: TUTOR_SYS + '\n\n' + lessonBrief(id), cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: 'Right now he is on step ' + (k + 1) + ' of ' + T.steps.length + (s && s.t ? ' ("' + s.t + '")' : '') + ' of lesson ' + id + '. Lessons he has completed: ' + (done.join(', ') || 'none yet') + '.' }
+    ];
+  }
+  function messages(list) {
+    const msgs = list.filter(m => m.r === 'u' || m.r === 'a').slice(-20), withImg = new Set(), out = [];
+    let left = 2; for (let i = msgs.length - 1; i >= 0 && left; i--) if (msgs[i].r === 'u' && msgs[i].img) { withImg.add(i); left--; }
+    msgs.forEach((m, i) => {
+      const role = m.r === 'u' ? 'user' : 'assistant', content = [];
+      if (role === 'user') {
+        if (withImg.has(i)) content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: m.img.split(',')[1] } });
+        else if (m.img || m.had) content.push({ type: 'text', text: '[I sent a photo of my build here earlier.]' });
+      }
+      content.push({ type: 'text', text: m.t || '...' });
+      const last = out[out.length - 1];
+      if (last && last.role === role) last.content = last.content.concat(content); else out.push({ role, content });
+    });
+    while (out.length && out[0].role !== 'user') out.shift();
+    return out;
+  }
+  async function call(body) {
+    let r;
+    try {
+      r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': DEV.akey.trim(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }, body: JSON.stringify(body) });
+    } catch (e) { throw new Error('No connection. The tutor needs signal to answer; the steps work without it.'); }
+    let d = null; try { d = await r.json(); } catch (e) {}
+    if (!r.ok) {
+      const m = (d && d.error && d.error.message) || '';
+      if (r.status === 401) throw new Error('Claude didn\'t accept the key. Check it in Settings > Tutor.');
+      if (/credit/i.test(m)) throw new Error('Your Claude Console account is out of credit. Add some under Billing at console.anthropic.com.');
+      if (r.status === 404) throw new Error('That tutor model isn\'t available. Pick the other one in Settings > Tutor.');
+      if (r.status === 429) throw new Error('Too many questions at once. Wait a minute and ask again.');
+      if (r.status >= 500) throw new Error('Claude is busy right now. Try again in a moment.');
+      throw new Error('The tutor hit an error (' + r.status + ')' + (m ? ': ' + m.slice(0, 160) : '.'));
+    }
+    return (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+  }
+  async function ask(id, k, text, img, viaVoice) {
+    if (busy) { toast('The tutor is still answering.'); return; }
+    const list = load(id);
+    list.push(Object.assign({ r: 'u', t: text, k, at: Date.now() }, img ? { img } : {}));
+    save(id, list);
+    busy = true; VOICE.hold(true); sheetRefresh(true);
+    let reply = '', err = '';
+    try { reply = await call({ model: DEV.tmodel || 'claude-sonnet-5-5', max_tokens: 1000, system: system(id, k), messages: messages(load(id)) }) || '(No reply. Try asking again.)'; }
+    catch (e) { err = e.message || String(e); }
+    busy = false;
+    const l2 = load(id); l2.push(reply ? { r: 'a', t: reply, at: Date.now() } : { r: 'e', t: err, at: Date.now() }); save(id, l2);
+    sheetRefresh(true);
+    if (reply ? (viaVoice || talkBack()) : viaVoice) VOICE.say(reply ? forSpeech(reply) : err);
+    VOICE.hold(false);
+  }
+  async function test() {
+    try { await call({ model: DEV.tmodel || 'claude-sonnet-5-5', max_tokens: 10, messages: [{ role: 'user', content: 'Reply with the single word: ready' }] }); toast('The tutor key works'); }
+    catch (e) { toast(e.message || 'Key test failed'); }
+  }
+  return { load, ask, test, busy: () => busy, clear: id => { try { localStorage.removeItem(K + id); } catch (e) {} } };
+})();
+const forSpeech = t => String(t).replace(/```[\s\S]*?```/g, ' The code is on screen. ').replace(/\*\*/g, '').replace(/^\s*[-*•]\s+/gm, '').replace(/#+\s/g, '');
+function richText(t) {
+  return String(t).split(/```[a-zA-Z+]*\n?([\s\S]*?)```/g).map((part, i) => i % 2
+    ? '<div class="code"><button class="copy" data-copycode>Copy</button><pre><code>' + esc(part.replace(/\n$/, '')) + '</code></pre></div>'
+    : part.split(/\n{2,}/).map(pp => pp.trim() ? '<p>' + fmt(pp.trim()).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>') + '</p>' : '').join('')).join('');
+}
+async function toJpegURL(blob, max) {
+  const img = await createImageBitmap(blob), k = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.74);
+}
+const STARTERS = ['What do I do in this step?', 'Why does this work?', 'Quiz me on this lesson', 'Explain it a different way'];
+function keyCardHTML() {
+  return '<div class="keycard"><h4>Set up the tutor</h4>' +
+    '<p>To answer your questions, the tutor uses Claude through Anthropic\'s API. That needs a key from a Claude Console account. It\'s separate from your Claude app plan and pay as you go: about 1 to 2 cents a question.</p>' +
+    '<ol><li>Go to <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> and sign in with your email.</li><li>Under Billing, add $5 of credit. That covers a few hundred questions.</li><li>Under Limits, set a monthly spend limit, like $10, so it can never run away on you.</li><li>Under API keys, tap Create key, name it Deck Ops, and copy it.</li><li>Paste it here. It stays on this phone and never syncs.</li></ol>' +
+    '<form id="keyForm" class="form"><label class="f">Claude API key<input name="akey" type="password" placeholder="sk-ant-…" autocapitalize="off" autocomplete="off" spellcheck="false"></label><div class="row"><button class="btn primary">Save key</button></div></form></div>';
+}
+function bubbleHTML(m, i) {
+  if (m.r === 'u') return '<div class="bub u">' + (m.img ? '<img src="' + m.img + '" alt="Photo you sent">' : m.had ? '<p class="muted">[photo]</p>' : '') + '<p>' + fmt(m.t).replace(/\n/g, '<br>') + '</p></div>';
+  if (m.r === 'e') return '<div class="bub e" role="alert"><p>' + esc(m.t) + '</p></div>';
+  return '<div class="bub a">' + richText(m.t) + (VOICE.canSpeak() ? '<button class="linkbtn" data-saymsg="' + i + '">Read aloud</button>' : '') + '</div>';
+}
+function chatHTML(id, k) {
+  const list = TEACH.load(id), on = !!DEV.akey, dis = on ? '' : ' disabled';
+  let h = on ? '' : keyCardHTML();
+  h += '<div class="chat">';
+  if (!list.length) h += '<div class="chat-empty"><p>Ask anything about this lesson: what a step means, why it works, or what\'s wrong with your build. The tutor knows your kit, your breadboard and which step you\'re on. Add a photo and it can check your wiring.</p><div class="chips">' + STARTERS.map(q => '<button class="chip" data-askq="' + esc(q) + '"' + dis + '>' + esc(q) + '</button>').join('') + '<button class="chip" data-askphoto' + dis + '>Check my wiring (photo)</button></div></div>';
+  list.forEach((m, i) => { h += bubbleHTML(m, i); });
+  if (TEACH.busy()) h += '<div class="bub a typing" aria-label="The tutor is thinking"><span></span><span></span><span></span></div>';
+  h += '</div><div class="composer">' + (ui.askImg ? '<div class="askimg"><img src="' + ui.askImg + '" alt="Photo to send"><button class="x" data-askimgx aria-label="Remove photo">×</button></div>' : '') +
+    '<label class="sr" for="askIn">Your question</label><textarea id="askIn" rows="2" placeholder="' + (on ? 'Ask the tutor…' : 'Add a key above to ask questions') + '"' + dis + '>' + esc(ui.askDraft || '') + '</textarea>' +
+    '<div class="row"><button class="btn ghost" data-askphoto' + dis + '>Photo</button>' + (VOICE.canListen() ? '<button class="btn ghost" data-askmic' + dis + '>' + (ui.dictating ? 'Listening…' : 'Speak') + '</button>' : '') + '<button class="btn primary" data-asksend' + dis + '>Send</button></div></div>';
+  if (list.length) h += '<p class="tnote"><button class="linkbtn" data-askclear>Clear this conversation</button></p>';
+  h += '<div class="task"><a class="btn ghost" href="https://claude.ai/new?q=' + encodeURIComponent(claudePrompt(id, k)) + '" target="_blank" rel="noopener" data-askclaude="' + id + ':' + k + '">Ask in the Claude app</a><span class="muted">Free with your Claude plan, outside Deck Ops.</span></div>';
+  return h;
+}
+function tutorAsk(text, viaVoice) {
+  const st = ui.tut; if (!st) return;
+  st.mode = 'ask';
+  if (!DEV.akey) { sheetRefresh(true); if (viaVoice || talkBack()) VOICE.say('To answer questions I need a Claude key. The setup steps are on screen.'); return; }
+  const img = ui.askImg; ui.askImg = null; ui.askDraft = '';
+  TEACH.ask(st.id, st.step, (text || '').trim() || 'Here\'s a photo of my build. Does it look right for this step?', img, viaVoice);
+}
+VOICE.onQuestion = text => tutorAsk(text, true);
+function sheetRefresh(toBottom) {
+  if (!ui.lesson || ui.lesson === '__photo') return;
+  const sh = $('#sheet'), ae = document.activeElement, keep = ae && ae.id === 'askIn', pos = keep ? ae.selectionStart : null, st = sh.scrollTop;
+  sh.innerHTML = sheetHTML();
+  sh.scrollTop = toBottom && ui.tut && ui.tut.mode === 'ask' ? sh.scrollHeight : st;
+  if (keep) { const t = sh.querySelector('#askIn'); if (t) { t.focus({ preventScroll: true }); try { t.setSelectionRange(pos, pos); } catch (e) {} } }
+}
 
 /* ---------- sheets: lesson, photo, sys ---------- */
 function lessonHTML(id) {
@@ -909,6 +1076,11 @@ function sysHTML() {
   let h = '<div class="sh-head"><span></span><div><div class="sh-br">Deck Ops ' + APP_VERSION + (NATIVE ? '   android app' : '   web app') + '</div><h2 id="sh-title" class="vt">Settings</h2></div><button class="x" data-close aria-label="Close settings">×</button></div><div class="sh-body">';
   h += '<div class="set"><h3>Look</h3><div>' + THEMES.map(([k, l]) => '<button class="chip" data-theme="' + k + '" aria-pressed="' + (DEV.theme === k) + '">' + l + '</button>').join('') + '</div></div>';
   h += '<div class="set"><h3>Sound and feel</h3>' + tog('sound', 'Terminal sounds', 'Key clicks, boot beep, completion chirp', DEV.sound) + tog('haptics', 'Vibration', 'A tap on keys, a buzz on completion', DEV.haptics) + (VOICE.canSpeak() ? tog('speak', 'Tutor reads aloud', 'Reads each tutor step in your phone\'s voice', DEV.speak) : '') + '</div>';
+  h += '<div class="set"><h3>Tutor</h3><p class="kv">Ask the tutor: <b>' + (DEV.akey ? 'key saved on this phone' : 'not set up') + '</b></p>' +
+    '<form class="form" id="keyForm"><label class="f">Claude API key<input name="akey" type="password" value="" placeholder="' + (DEV.akey ? '•••• saved (paste to replace)' : 'sk-ant-…') + '" autocapitalize="off" autocomplete="off" spellcheck="false"></label>' +
+    '<label class="f">Tutor model<select name="tmodel"><option value="claude-sonnet-5-5"' + (DEV.tmodel !== 'claude-haiku-5-5' ? ' selected' : '') + '>Sonnet 5.5: the best teacher</option><option value="claude-haiku-5-5"' + (DEV.tmodel === 'claude-haiku-5-5' ? ' selected' : '') + '>Haiku 5.5: cheaper and quicker</option></select></label>' +
+    '<div class="row"><button class="btn primary">Save</button>' + (DEV.akey ? '<button type="button" class="btn ghost" data-keytest>Test it</button><button type="button" class="btn ghost" data-keyrm>Remove key</button>' : '') + '</div></form>' +
+    '<p class="muted">Pay as you go through <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>, about 1 to 2 cents a question. Set a monthly spend limit there. The key stays on this device and never syncs.</p></div>';
   h += '<div class="set"><h3>Reminders</h3>';
   if (!REM.ok()) h += '<p class="muted">Reminders run in the Android app. The deck night schedule below still syncs to it.</p>';
   else if (ui.notif !== 'granted') h += '<p class="warn">Notifications are off for Deck Ops.</p><div class="row" style="margin-bottom:10px"><button class="btn primary" data-asknotif>Allow notifications</button></div>';
@@ -1054,11 +1226,22 @@ document.addEventListener('click', async ev => {
   if (a('data-tpick') != null && ui.tut) { const [qi, oi] = a('data-tpick').split(':').map(Number); return tutorPick(qi, oi); }
   if (a('data-thint') != null && ui.tut) return tutorHint();
   if (a('data-tshow') != null && ui.tut) return tutorAnswer();
+  if (a('data-tmode') != null && ui.tut) { ui.tut.mode = a('data-tmode'); sheetRefresh(ui.tut.mode === 'ask' && !!DEV.akey); if (ui.tut.mode === 'ask' && !DEV.akey) $('#sheet').scrollTop = 0; if (ui.tut.mode === 'ask') { const t = $('#askIn'); if (t && !t.disabled && !NATIVE) t.focus({ preventScroll: true }); } return; }
+  if (a('data-asksend') != null && ui.tut) { const t = $('#askIn'); if (t) ui.askDraft = t.value; if (!(ui.askDraft || '').trim() && !ui.askImg) { toast('Type a question first.'); return; } return tutorAsk(ui.askDraft, false); }
+  if (a('data-askq') != null && ui.tut) return tutorAsk(a('data-askq'), false);
+  if (a('data-askphoto') != null && ui.tut) { try { ui.askImg = await toJpegURL(await takePhoto(), 1024); if (ui.tut.mode !== 'ask') ui.tut.mode = 'ask'; sheetRefresh(true); toast('Photo added. Ask your question and tap Send.'); } catch (e) { if (e && e.message !== 'cancel') toast('No photo added'); } return; }
+  if (a('data-askimgx') != null) { ui.askImg = null; return sheetRefresh(); }
+  if (a('data-askmic') != null && ui.tut) { ui.dictating = true; sheetRefresh(); const said = await VOICE.dictate(); ui.dictating = false; if (said) return tutorAsk(said, true); sheetRefresh(); toast('Didn\'t catch that. Try again.'); return; }
+  if (a('data-askclear') != null && ui.tut) { TEACH.clear(ui.tut.id); return sheetRefresh(); }
+  if (a('data-saymsg') != null && ui.tut) { const m = TEACH.load(ui.tut.id)[Number(a('data-saymsg'))]; if (m) VOICE.say(forSpeech(m.t)); return; }
+  if (a('data-copycode') != null) { const pre = t.nextElementSibling; return copyText(pre ? pre.textContent : '', 'Code copied'); }
+  if (a('data-keytest') != null) return TEACH.test();
+  if (a('data-keyrm') != null) { DEV.akey = ''; saveDev(); render(); sheetRefresh(); return toast('Tutor key removed from this phone'); }
   if (a('data-tspeak') != null && ui.tut) { DEV.speak = !DEV.speak; saveDev(); render(); if (DEV.speak) VOICE.say(stepSpeech(ui.tut.id, ui.tut.step)); else VOICE.hush(); return; }
   if (a('data-tlisten') != null && ui.tut) {
     if (VOICE.listening()) { VOICE.stop(); render(); return; }
     const ok = await VOICE.start(); render();
-    if (ok) VOICE.say('Listening. Say next, back, repeat, hint, or answer.');
+    if (ok) VOICE.say('I\'m listening. Ask me anything, or say next, back, repeat, hint or answer.');
     return;
   }
   if (a('data-copyt') != null) { const [id, k, f] = a('data-copyt').split(':'), s = tutorFor(id).steps[Number(k)]; return copyText(s[f], 'Code copied'); }
@@ -1136,6 +1319,7 @@ document.addEventListener('keydown', ev => {
 document.addEventListener('input', ev => {
   const el = ev.target;
   if (el.hasAttribute('data-q')) { ui.q = el.value; render(); return; }
+  if (el.id === 'askIn') { ui.askDraft = el.value; return; }
   const k = el.getAttribute('data-draft');
   if (k && ui.draft) { ui.draft[k] = el.value; if (k === 'node' && el.value && !ui.draft.t) { ui.draft.t = el.value + ' ' + NODE[el.value].t; render(); } }
 });
@@ -1174,6 +1358,14 @@ document.addEventListener('submit', async ev => {
       freq: d.tags.includes('Signal') ? d.freq.trim() : '', mode: d.tags.includes('Signal') ? d.mode : '', photo: d.photo || null, created: prev ? prev.created : Date.now(), u: Date.now() };
     LOG = LOG.filter(x => x.id !== entry.id).concat(entry); saveLog();
     ui.draft = null; ui.editing = null; commit('Entry saved'); return;
+  }
+  if (f.id === 'keyForm') {
+    const fd = new FormData(f), k = String(fd.get('akey') || '').trim();
+    if (fd.has('tmodel')) DEV.tmodel = String(fd.get('tmodel'));
+    if (k) DEV.akey = k;
+    saveDev(); render(); sheetRefresh();
+    toast(k && !/^sk-ant-/.test(k) ? 'Saved, but that doesn\'t look like a Claude key (they start sk-ant-)' : 'Tutor settings saved');
+    return;
   }
   if (f.id === 'syncForm') {
     const fd = new FormData(f);

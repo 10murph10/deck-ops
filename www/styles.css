@@ -397,3 +397,37 @@ textarea{width:100%;min-height:110px;resize:vertical;line-height:1.5}
 .tlisten .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);animation:tl 1.2s ease-in-out infinite;flex:none}
 @keyframes tl{50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.tlisten .dot{animation:none}}
+.tf-t{font-size:10px}
+.tf-lab,.tf-tag{font-size:11px}
+.halo{paint-order:stroke;stroke:var(--sheet);stroke-width:3px;stroke-linejoin:round}
+
+/* ask the tutor */
+.ttabs{display:flex;gap:0;margin:0 0 14px;border-bottom:1px solid var(--line)}
+.ttabs button{flex:1;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--dim);padding:9px 6px;font:inherit;cursor:pointer}
+.ttabs button[aria-selected="true"]{color:var(--hi);border-bottom-color:var(--ph)}
+.keycard{border:1px solid var(--draft);padding:12px 14px;margin:0 0 14px}
+.keycard h4{margin:0 0 6px;font-family:var(--disp);font-weight:400;font-size:22px;line-height:1;color:var(--draft)}
+.keycard ol{padding-left:1.3em;margin:8px 0 12px}
+.keycard li{margin:0 0 5px}
+.keycard a,.set a{color:var(--hi)}
+.chat{display:flex;flex-direction:column;gap:10px;margin:0 0 12px}
+.chat-empty p{color:var(--dim);margin:0 0 10px}
+.chat-empty .chips{display:flex;flex-wrap:wrap;gap:6px}
+.bub{max-width:92%;padding:9px 12px;border:1px solid var(--line);line-height:1.5}
+.bub p{margin:0 0 8px}.bub p:last-of-type{margin-bottom:0}
+.bub.u{align-self:flex-end;border-color:var(--amber);background:rgba(255,176,0,.06)}
+.bub.u img{display:block;max-width:100%;max-height:260px;margin:0 0 8px;border:1px solid var(--line)}
+.bub.a{align-self:flex-start;border-color:var(--ph);background:rgba(var(--ph-rgb),.05)}
+.bub.a .code{margin:8px 0}
+.bub.a .linkbtn{margin-top:6px;font-size:12px}
+.bub.e{align-self:stretch;border-color:var(--amber);color:var(--amber)}
+.bub.typing{display:flex;gap:5px;padding:12px 14px}
+.bub.typing span{width:7px;height:7px;border-radius:50%;background:var(--ph);animation:tl 1s ease-in-out infinite}
+.bub.typing span:nth-child(2){animation-delay:.15s}.bub.typing span:nth-child(3){animation-delay:.3s}
+.composer{border:1px solid var(--line);padding:10px;margin:0 0 10px;background:rgba(var(--ph-rgb),.03)}
+.composer textarea{width:100%;box-sizing:border-box;min-height:56px;resize:vertical;background:var(--glass);color:var(--hi);border:1px solid var(--line);padding:8px;font:inherit;margin:0 0 8px}
+.composer textarea:focus{outline:1px solid var(--ph)}
+.composer .row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.askimg{position:relative;display:inline-block;margin:0 0 8px}
+.askimg img{display:block;max-height:140px;border:1px solid var(--line)}
+.askimg .x{position:absolute;top:2px;right:2px}

@@ -14,92 +14,96 @@ const TF = (() => {
   };
   const tw = s => s.length * 6.4 + 12;
 
+  /* Upright board, as it sits on the bench: rows 1-63 top to bottom, a-e left of the centre gap, f-j right,
+     a + and - rail down each edge (+ on the red line, left side of each rail). Wires come in from the UNO on the left. */
   function board(o) {
-    const r0 = o.r0, n = o.r1 - o.r0 + 1;
-    const X0 = 24, top = o.tags ? 40 : 8;
-    const railTop = o.rails ? [top + 4, top + 4 + P] : null;
-    const yA = (o.rails ? top + 4 + 2 * P + 6 : top + 6) + P / 2;
-    const y = l => { const i = LET.indexOf(l); return yA + i * P + (i >= 5 ? P : 0); };
-    const x = r => X0 + (r - r0) * P + P / 2;
-    const railBot = o.rails === 'both' ? [y('j') + P + 6, y('j') + 2 * P + 6] : null;
-    const bottom = (railBot ? railBot[1] : y('j')) + P / 2;
-    const W = X0 + n * P + 8, H = bottom + 20;
-    const g = { x, y, W, H, rails: railTop, railBot, r0, r1: o.r1 };
-    let s = '<rect class="tf-board" x="' + (X0 - 6) + '" y="' + (top - 4) + '" width="' + (n * P + 12) + '" height="' + (bottom - top + 8) + '" rx="4"/>';
-    // trench
-    s += '<rect class="tf-trench" x="' + (X0 - 6) + '" y="' + (y('e') + P / 2 + 2) + '" width="' + (n * P + 12) + '" height="' + (P - 4) + '"/>';
+    const r0 = o.r0, r1 = o.r1, wired = (o.wires || []).length > 0;
+    const TAG = wired ? 60 : 4, top = 24;
+    const rail = [TAG + 12, TAG + 12 + P];
+    const xa = rail[1] + P + 14;
+    const x = l => { const i = LET.indexOf(l); return xa + i * P + (i >= 5 ? P : 0); };
+    const railR = [x('j') + P + 10, x('j') + 2 * P + 10];
+    const y = r => top + (r - r0) * P + P / 2;
+    const yTop = top - 4, yBot = y(r1) + P / 2 + 4, W = railR[1] + P / 2 + 8, H = yBot + 6;
+    const g = { x, y, W, H, rail, railR, r0, r1, TAG };
+    let s = '';
+    const slab = (x1, x2) => '<rect class="tf-board" x="' + x1 + '" y="' + yTop + '" width="' + (x2 - x1) + '" height="' + (yBot - yTop) + '" rx="4"/>';
+    s += slab(rail[0] - P / 2 - 4, rail[1] + P / 2 + 4) + slab(x('a') - P / 2 - 12, x('e') + P / 2 + 2) + slab(x('f') - P / 2 - 2, x('j') + P / 2 + 12) + slab(railR[0] - P / 2 - 4, railR[1] + P / 2 + 4);
+    s += '<rect class="tf-trench" x="' + (x('e') + P / 2 + 2) + '" y="' + yTop + '" width="' + (P - 4) + '" height="' + (yBot - yTop) + '"/>';
     (o.hl || []).forEach(h => { s += hlRect(g, h); });
-    // rails
-    const rail = (ry, kind) => {
-      let r = '<line x1="' + (X0 - 2) + '" y1="' + (ry + (kind === '+' ? -7 : 7)) + '" x2="' + (X0 + n * P - 2) + '" y2="' + (ry + (kind === '+' ? -7 : 7)) + '" stroke="' + (kind === '+' ? '#e0302a' : '#2f6fe0') + '" stroke-width="1.4"/>';
-      r += '<text class="tf-t" x="' + (X0 - 13) + '" y="' + (ry + 3) + '" text-anchor="middle">' + (kind === '+' ? '+' : '−') + '</text>';
-      for (let i = 0; i < n; i++) r += '<rect class="tf-h" x="' + (x(r0 + i) - 2) + '" y="' + (ry - 2) + '" width="4" height="4"/>';
+    const railCols = (rx, side) => {
+      let r = '<line x1="' + (rx[0] - 8) + '" y1="' + (yTop + 4) + '" x2="' + (rx[0] - 8) + '" y2="' + (yBot - 4) + '" stroke="#e0302a" stroke-width="1.4"/>' +
+        '<line x1="' + (rx[1] + 8) + '" y1="' + (yTop + 4) + '" x2="' + (rx[1] + 8) + '" y2="' + (yBot - 4) + '" stroke="#2f6fe0" stroke-width="1.4"/>' +
+        '<text class="tf-t" x="' + rx[0] + '" y="14" text-anchor="middle" fill="#e0302a" style="fill:#e0302a">+</text><text class="tf-t" x="' + rx[1] + '" y="14" text-anchor="middle" style="fill:#4a8cff">−</text>';
+      for (let rr = r0; rr <= r1; rr++) rx.forEach(cx => { r += '<rect class="tf-h" x="' + (cx - 2) + '" y="' + (y(rr) - 2) + '" width="4" height="4"/>'; });
       return r;
     };
-    if (railTop) { s += rail(railTop[0], '+') + rail(railTop[1], '-'); }
-    if (railBot) { s += rail(railBot[0], '+') + rail(railBot[1], '-'); }
+    s += railCols(rail) + railCols(railR);
     for (let i = 0; i < 10; i++) {
       const l = LET[i];
-      s += '<text class="tf-t" x="' + (X0 - 13) + '" y="' + (y(l) + 3) + '" text-anchor="middle">' + l + '</text>';
-      for (let r = r0; r <= o.r1; r++) s += '<rect class="tf-h" x="' + (x(r) - 2) + '" y="' + (y(l) - 2) + '" width="4" height="4"/>';
+      s += '<text class="tf-t" x="' + x(l) + '" y="14" text-anchor="middle">' + l + '</text>';
+      for (let rr = r0; rr <= r1; rr++) s += '<rect class="tf-h" x="' + (x(l) - 2) + '" y="' + (y(rr) - 2) + '" width="4" height="4"/>';
     }
-    const keep = [r0, o.r1].concat(o.num || []), near = r => keep.some(k => k !== r && Math.abs(k - r) <= 1);
-    for (let r = r0; r <= o.r1; r++) if (keep.includes(r) || (r % 5 === 0 && !near(r))) s += '<text class="tf-t" x="' + x(r) + '" y="' + (bottom + 14) + '" text-anchor="middle">' + r + '</text>';
+    const keep = [r0, r1].concat(o.num || []), near = r => keep.some(k => k !== r && Math.abs(k - r) <= 1);
+    for (let rr = r0; rr <= r1; rr++) if (keep.includes(rr) || (rr % 5 === 0 && !near(rr))) {
+      s += '<text class="tf-t" x="' + (x('a') - P / 2 - 5) + '" y="' + (y(rr) + 3.5) + '" text-anchor="middle">' + rr + '</text>';
+      s += '<text class="tf-t" x="' + (x('j') + P / 2 + 5) + '" y="' + (y(rr) + 3.5) + '" text-anchor="middle">' + rr + '</text>';
+    }
     return { g, s };
   }
   function hlRect(g, h) {
     if (h.rail) {
-      const ry = h.rail === '+' ? g.rails[0] : g.rails[1];
-      return '<rect class="tf-hl' + (h.alt ? ' alt' : '') + '" x="' + (g.x(g.r0) - P / 2 + 1) + '" y="' + (ry - P / 2 + 3) + '" width="' + ((g.r1 - g.r0 + 1) * P - 2) + '" height="' + (P - 6) + '" rx="3"/>';
+      const cx = h.rail === '+' ? g.rail[0] : g.rail[1];
+      return '<rect class="tf-hl' + (h.alt ? ' alt' : '') + '" x="' + (cx - P / 2 + 3) + '" y="' + (g.y(g.r0) - P / 2 + 2) + '" width="' + (P - 6) + '" height="' + ((g.r1 - g.r0 + 1) * P - 4) + '" rx="3"/>';
     }
     const a = h.half === 'bot' ? 'f' : 'a', b = h.half === 'bot' ? 'j' : 'e';
-    return '<rect class="tf-hl' + (h.alt ? ' alt' : '') + '" x="' + (g.x(h.row) - P / 2 + 3) + '" y="' + (g.y(a) - P / 2 + 3) + '" width="' + (P - 6) + '" height="' + (g.y(b) - g.y(a) + P - 6) + '" rx="3"/>';
+    return '<rect class="tf-hl' + (h.alt ? ' alt' : '') + '" x="' + (g.x(a) - P / 2 + 3) + '" y="' + (g.y(h.row) - P / 2 + 3) + '" width="' + (g.x(b) - g.x(a) + P - 6) + '" height="' + (P - 6) + '" rx="3"/>';
   }
+  const halo = (cls, x, y, anchor, text) => '<text class="' + cls + ' halo" x="' + x + '" y="' + y + '" text-anchor="' + anchor + '">' + text + '</text>';
+  const leg = (x1, y1, x2, y2) => '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#c9ced3" stroke-width="1.6"/>';
+  const pin = (x, y) => '<circle cx="' + x + '" cy="' + y + '" r="2.4" fill="#c9ced3"/>';
   function resistor(g, l, ra, rb, val, label) {
-    const yy = g.y(l), xa = g.x(ra), xb = g.x(rb), mid = (xa + xb) / 2, bw = Math.min(40, Math.abs(xb - xa) - 10);
-    let s = '<line x1="' + xa + '" y1="' + yy + '" x2="' + xb + '" y2="' + yy + '" stroke="#c9ced3" stroke-width="1.6"/>';
-    s += '<circle cx="' + xa + '" cy="' + yy + '" r="2.4" fill="#c9ced3"/><circle cx="' + xb + '" cy="' + yy + '" r="2.4" fill="#c9ced3"/>';
-    s += '<rect x="' + (mid - bw / 2) + '" y="' + (yy - 5.5) + '" width="' + bw + '" height="11" rx="5" fill="#b8cfe6"/>';
-    const bands = RES[val] || RES[220], step = (bw - 14) / 5;
-    bands.forEach((c, i) => { const bx = mid - bw / 2 + 6 + i * step + (i === 4 ? step * 0.5 : 0); s += '<rect x="' + bx + '" y="' + (yy - 5.5) + '" width="3" height="11" fill="' + BAND[c] + '"/>'; });
-    if (label) s += '<text class="tf-lab" x="' + mid + '" y="' + (yy - 9) + '" text-anchor="middle">' + label + '</text>';
+    const xx = g.x(l), ya = g.y(ra), yb = g.y(rb), mid = (ya + yb) / 2, bh = Math.min(40, Math.abs(yb - ya) - 10);
+    let s = leg(xx, ya, xx, yb) + pin(xx, ya) + pin(xx, yb);
+    s += '<rect x="' + (xx - 5.5) + '" y="' + (mid - bh / 2) + '" width="11" height="' + bh + '" rx="5" fill="#b8cfe6"/>';
+    const bands = RES[val] || RES[220], step = (bh - 14) / 5;
+    bands.forEach((c, i) => { const by = mid - bh / 2 + 6 + i * step + (i === 4 ? step * 0.5 : 0); s += '<rect x="' + (xx - 5.5) + '" y="' + by + '" width="11" height="3" fill="' + BAND[c] + '"/>'; });
+    if (label) s += halo('tf-lab', xx + 9, mid + 4, 'start', label);
     return s;
   }
   function led(g, l, ra, rk, colour) {
-    const yy = g.y(l), xa = g.x(ra), xk = g.x(rk), mid = (xa + xk) / 2, cy = yy + P * 0.95, c = colour || '#ff3b30';
-    let s = '<line x1="' + xa + '" y1="' + yy + '" x2="' + (mid + (xa > xk ? 3 : -3)) + '" y2="' + cy + '" stroke="#c9ced3" stroke-width="1.6"/>';
-    s += '<line x1="' + xk + '" y1="' + yy + '" x2="' + (mid + (xk > xa ? 3 : -3)) + '" y2="' + cy + '" stroke="#c9ced3" stroke-width="1.6"/>';
-    s += '<circle cx="' + xa + '" cy="' + yy + '" r="2.4" fill="#c9ced3"/><circle cx="' + xk + '" cy="' + yy + '" r="2.4" fill="#c9ced3"/>';
-    s += '<circle cx="' + mid + '" cy="' + cy + '" r="8.5" fill="' + c + '" fill-opacity=".85" stroke="' + c + '"/>';
-    const fx = mid + (xk > xa ? 6.5 : -6.5);
-    s += '<line x1="' + fx + '" y1="' + (cy - 5.5) + '" x2="' + fx + '" y2="' + (cy + 5.5) + '" stroke="#ffffff" stroke-width="1.6"/>';
-    s += '<text class="tf-lab" x="' + (mid + (xa > xk ? 13 : -13)) + '" y="' + (cy + 4) + '" text-anchor="' + (xa > xk ? 'start' : 'end') + '">+</text>';
-    s += '<text class="tf-lab" x="' + (mid + (xk > xa ? 13 : -13)) + '" y="' + (cy + 4) + '" text-anchor="' + (xk > xa ? 'start' : 'end') + '">−</text>';
+    const xx = g.x(l), ya = g.y(ra), yk = g.y(rk), my = (ya + yk) / 2, c = colour || '#ff3b30';
+    const bx = (l === 'e' || l === 'f') ? (g.x('e') + g.x('f')) / 2 : xx + P;
+    let s = leg(xx, ya, bx, my + (ya > yk ? 3 : -3)) + leg(xx, yk, bx, my + (yk > ya ? 3 : -3)) + pin(xx, ya) + pin(xx, yk);
+    s += '<circle cx="' + bx + '" cy="' + my + '" r="8.5" fill="' + c + '" fill-opacity=".85" stroke="' + c + '"/>';
+    const fy = my + (yk > ya ? 6.5 : -6.5);
+    s += '<line x1="' + (bx - 5.5) + '" y1="' + fy + '" x2="' + (bx + 5.5) + '" y2="' + fy + '" stroke="#ffffff" stroke-width="1.6"/>';
+    s += halo('tf-lab', bx + 12, ya + 4, 'start', '+ long') + halo('tf-lab', bx + 12, yk + 4, 'start', '− short');
     return s;
   }
   function button(g, ra, rb) {
-    const x1 = g.x(ra) - 7, x2 = g.x(rb) + 7, y1 = g.y('e') - 7, y2 = g.y('f') + 7;
+    const x1 = g.x('e') - 7, x2 = g.x('f') + 7, y1 = g.y(ra) - 7, y2 = g.y(rb) + 7;
     let s = '<rect x="' + x1 + '" y="' + y1 + '" width="' + (x2 - x1) + '" height="' + (y2 - y1) + '" rx="3" fill="#2b2f33" stroke="#9aa3ab"/>';
-    s += '<circle cx="' + ((x1 + x2) / 2) + '" cy="' + ((y1 + y2) / 2) + '" r="' + ((x2 - x1) / 2 - 7) + '" fill="#5d6670" stroke="#c9ced3"/>';
-    [[ra, 'e'], [rb, 'e'], [ra, 'f'], [rb, 'f']].forEach(([r, l]) => { s += '<circle cx="' + g.x(r) + '" cy="' + g.y(l) + '" r="2.6" fill="#c9ced3"/>'; });
+    s += '<circle cx="' + ((x1 + x2) / 2) + '" cy="' + ((y1 + y2) / 2) + '" r="' + ((y2 - y1) / 2 - 7) + '" fill="#5d6670" stroke="#c9ced3"/>';
+    [['e', ra], ['e', rb], ['f', ra], ['f', rb]].forEach(([l, r]) => { s += '<circle cx="' + g.x(l) + '" cy="' + g.y(r) + '" r="2.6" fill="#c9ced3"/>'; });
     return s;
   }
   function ldr(g, l, ra, rb) {
-    const yy = g.y(l), xa = g.x(ra), xb = g.x(rb), mid = (xa + xb) / 2;
-    let s = '<line x1="' + xa + '" y1="' + yy + '" x2="' + xb + '" y2="' + yy + '" stroke="#c9ced3" stroke-width="1.6"/>';
-    s += '<circle cx="' + xa + '" cy="' + yy + '" r="2.4" fill="#c9ced3"/><circle cx="' + xb + '" cy="' + yy + '" r="2.4" fill="#c9ced3"/>';
-    s += '<circle cx="' + mid + '" cy="' + yy + '" r="9" fill="#e9dcc0" stroke="#b07a2e"/>';
-    s += '<path d="M' + (mid - 6) + ' ' + (yy - 3) + ' h3 v6 h3 v-6 h3 v6 h3" fill="none" stroke="#b5462a" stroke-width="1.3"/>';
+    const xx = g.x(l), ya = g.y(ra), yb = g.y(rb), mid = (ya + yb) / 2;
+    let s = leg(xx, ya, xx, yb) + pin(xx, ya) + pin(xx, yb);
+    s += '<circle cx="' + xx + '" cy="' + mid + '" r="9" fill="#e9dcc0" stroke="#b07a2e"/>';
+    s += '<path d="M' + (xx - 3) + ' ' + (mid - 6) + ' v3 h6 v3 h-6 v3 h6 v3" fill="none" stroke="#b5462a" stroke-width="1.3"/>';
     return s;
   }
   function wires(g, list) {
     let s = '';
     list.forEach(w => {
-      const hx = g.x(w.row), hy = g.y(w.hole || 'a'), tx = hx + (w.dx || 0), c = WIRE[w.c] || WIRE.sig, ww = tw(w.tag);
-      s += '<path d="M' + tx + ' 24 C' + tx + ' ' + (24 + (hy - 24) * 0.55) + ' ' + hx + ' ' + (hy - (hy - 24) * 0.45) + ' ' + hx + ' ' + hy + '" fill="none" stroke="' + c + '" stroke-width="2.4" stroke-linecap="round"/>';
-      s += '<circle cx="' + hx + '" cy="' + hy + '" r="2.6" fill="' + c + '"/>';
-      s += '<rect x="' + (tx - ww / 2) + '" y="4" width="' + ww + '" height="18" rx="3" fill="var(--sheet)" stroke="' + c + '"/>';
-      s += '<text class="tf-tag" x="' + tx + '" y="16.5" text-anchor="middle">' + w.tag + '</text>';
+      const hx = g.x(w.hole || 'a'), hy = g.y(w.row), c = WIRE[w.c] || WIRE.sig;
+      s += '<line x1="' + (g.TAG - 4) + '" y1="' + hy + '" x2="' + hx + '" y2="' + hy + '" stroke="#000" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>';
+      s += '<line x1="' + (g.TAG - 4) + '" y1="' + hy + '" x2="' + hx + '" y2="' + hy + '" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round"/>';
+      s += '<circle cx="' + hx + '" cy="' + hy + '" r="2.8" fill="' + c + '"/>';
+      s += '<rect x="2" y="' + (hy - 9) + '" width="' + (g.TAG - 6) + '" height="18" rx="3" fill="var(--sheet)" stroke="' + c + '"/>';
+      s += '<text class="tf-tag" x="' + (2 + (g.TAG - 6) / 2) + '" y="' + (hy + 4) + '" text-anchor="middle">' + w.tag + '</text>';
     });
     return s;
   }
@@ -131,9 +135,9 @@ const TF = (() => {
   F.e4Build = () => build({ r0: 17, r1: 25, tags: true, num: [20, 22], label: 'E4 wiring: button straddling the gap in rows 20 and 22, pin 2 to a20, GND to a22',
     hl: [{ row: 20, half: 'top' }, { row: 22, half: 'top', alt: true }],
     parts: [{ btn: [20, 22] }], wires: [{ tag: 'pin 2', row: 20, c: 'sig' }, { tag: 'GND', row: 22, c: 'gnd' }] });
-  F.e5Build = () => build({ r0: 24, r1: 34, tags: true, num: [26, 28, 32], label: 'E5 wiring: photoresistor c26 to c28, 10 kΩ c28 to c32, 5V to a26, A0 to a28, GND to a32',
+  F.e5Build = () => build({ r0: 24, r1: 34, tags: true, num: [26, 28, 32], label: 'E5 wiring: photoresistor c26 to c28, 10 kΩ d28 to d32, 5V to a26, A0 to a28, GND to a32',
     hl: [{ row: 28, half: 'top' }],
-    parts: [{ ldr: ['c', 26, 28] }, { res: ['c', 28, 32], val: 10000, label: '10 kΩ' }],
+    parts: [{ ldr: ['c', 26, 28] }, { res: ['d', 28, 32], val: 10000, label: '10 kΩ' }],
     wires: [{ tag: '5V', row: 26, c: 'v5' }, { tag: 'A0', row: 28, c: 'an' }, { tag: 'GND', row: 32, c: 'gnd' }] });
 
   F.ledLegs = () => svg(240, 176,
@@ -259,10 +263,10 @@ const TUTOR = {
     gear: ['UNO with your SOS sketch still on it', 'Breadboard (the big white one)', '1 LED (red is easiest to see)', '1 resistor, 220 Ω', '2 jumper wires', 'USB cable, unplugged for now'],
     steps: [
       { t: 'How the board is joined inside', fig: 'bbAnatomy',
-        cap: 'Row 3 lit up. a3 to e3 is one strip; f3 to j3 is a separate strip. The rails along the edges each run the full length.',
-        say: 'Under the holes are metal clips. Each numbered row has two strips of five holes: a to e, and f to j. Anything pushed into the same strip is connected, as if you\'d twisted the wires together. The gap down the middle keeps the two strips apart. The long rails on the edges are for power (+) and ground (−).',
+        cap: 'Row 3 lit up. a3 to e3 is one strip; f3 to j3 is a separate strip. The rails down each edge run the full length: + beside the red line, − beside the blue.',
+        say: 'Under the holes are metal clips. Each numbered row has two strips of five holes: a to e, and f to j. Anything pushed into the same strip is connected, as if you\'d twisted the wires together. The gap down the middle keeps the two strips apart. The long rails down the outside edges are for power (+) and ground (−).',
         why: 'You never solder on a breadboard. Where you push a leg decides what it connects to, so this is the one thing to get straight.',
-        do: ['Find the letters and numbers printed on your board. Your board may be turned differently from the drawing; go by the printed labels.'],
+        do: ['Stand your board up like the drawing: numbers 1 to 63 running down the sides, letters a to j across the top. Find row 3 and touch a3, then e3.'],
         ask: [
           { q: 'One wire goes into a12, another into d12. Are they connected?', opts: [
             ['Yes', true, 'Right. Same number, same side of the gap: one strip.'],
@@ -448,9 +452,9 @@ const TUTOR = {
           ['Go up', false, 'Darker means more resistance on the 5 V side. It takes a bigger share of the 5 V. What\'s left for the middle?']] }],
         hints: ['Picture two people splitting 5 V in proportion to their resistance. The bigger one takes more.'] },
       { t: 'Build it', fig: 'e5Build',
-        cap: '5V to row 26. The photoresistor joins rows 26 and 28. The 10 kΩ joins rows 28 and 32. Row 28 is the middle point, wired to A0. Row 32 goes to GND.',
+        cap: '5V to row 26. The photoresistor joins rows 26 and 28. The 10 kΩ joins rows 28 and 32, in column d because c28 is taken. Row 28 is the middle point, wired to A0. Row 32 goes to GND.',
         say: 'Elegoo\'s own Photocell lesson uses a 1 kΩ instead of 10 kΩ. Both work; 10 kΩ gives a bigger swing in ordinary room light.',
-        do: ['Unplug USB.', 'Photoresistor: legs in c26 and c28.', '10 kΩ resistor: c28 to c32.', 'Jumper: 5V (power side of the UNO) to a26.', 'Jumper: A0 to a28.', 'Jumper: GND to a32. You\'ve now used all three GND pins, which is when the rails earn their keep: one wire from GND to the − rail, and everything else plugs into the rail.'],
+        do: ['Unplug USB.', 'Photoresistor: legs in c26 and c28.', '10 kΩ resistor: d28 to d32. One leg per hole: c28 already has the photoresistor, and d28 is in the same row, so they\'re joined.', 'Jumper: 5V (power side of the UNO) to a26.', 'Jumper: A0 to a28.', 'Jumper: GND to a32. You\'ve now used all three GND pins, which is when the rails earn their keep: one wire from GND to the − rail, and everything else plugs into the rail.'],
         ask: [{ q: 'Which row is the middle point that A0 reads?', opts: [
           ['Row 28', true, 'Right. It sits between the photoresistor and the 10 kΩ.'],
           ['Row 26', false, 'Row 26 is the 5 V end.'],
@@ -481,3 +485,28 @@ const TUTOR_CTX = {
   cad: 'Tinkercad and the 3D printers at the Creation Nation makerspace',
   base: 'my old M1 MacBook, which I\'m turning into a home server with Fedora Asahi Remix'
 };
+
+/* The teacher's brief, sent with every question to Claude (with the lesson and walkthrough added after it). */
+const TUTOR_SYS = [
+  'You are the Deck Ops tutor: a patient, practical teacher inside a phone app that guides an adult beginner through building a Raspberry Pi cyberdeck and Arduino gadgets. He is hands-on and sharp but new to electronics and code. Talk to him like a good shop instructor: plain words, no fuss, no talking down.',
+  '',
+  'How to teach:',
+  '- Guide before telling. When he is working something out, ask one short question or give one hint that points him the right way, then build on his answer. If he asks straight out for the answer, has already tried, or is getting frustrated, give it plainly and explain why it works.',
+  '- Plain questions get plain answers. If he asks what something is or why it works, explain it directly, then check he has it with a quick question if useful.',
+  '- Always explain the why. Use comparisons to tools, water pressure or metalwork when they make an idea click.',
+  '- Be specific to his gear: name exact holes (like c11), pins, wires and parts from the lesson.',
+  '- Keep replies short: 2 to 5 sentences, under about 100 words, unless he asks for more or you are giving code. Your replies may be read aloud, so write for the ear: no headings, tables or bullet symbols. Numbered steps are fine when order matters. Put code in ``` blocks.',
+  '- Use Canadian spelling.',
+  '- If he sends a photo, say what you can actually see, compare it with the wiring this step wants, and point to the exact hole or part to change. If the photo is too blurry, dark or angled to tell, say what shot would help (straight down, good light, close enough to read the row numbers). Do not guess at details you cannot see.',
+  '- Stay on his build and learning. You cannot see his screen or press buttons in the app. To move through the lesson he taps Next or says next.',
+  '- Safety: the Arduino and Pi run on 5 V, which is safe to touch. Speak up clearly about anything involving mains power, lithium batteries, soldering heat or the forge.',
+  '',
+  'His setup:',
+  '- Elegoo UNO R3 Super Starter Kit. The board is an Arduino Uno clone: in the IDE he picks Arduino Uno. He uses Arduino IDE 2 on Windows, and the board appears as a COM port. Some Elegoo boards need the CH340 driver.',
+  '- His resistors are usually 5-band metal film on blue bodies: 220 ohm is red red black black brown, 1 kilo-ohm is brown black black brown brown, 10 kilo-ohm is brown black black red brown. 4-band ones: 220 is red red brown gold.',
+  '- His breadboard is an 830-point board used upright. Rows are numbered 1 to 63 from top to bottom. Columns a to e are the left half and f to j the right half, with the centre gap between e and f. In each row, a to e are joined together and f to j are joined together; nothing joins across the gap. A power rail runs down each outer edge, each with two columns: + beside the red line (the left column of each rail) and - beside the blue line (the right column). Rails run the full length.',
+  '- The UNO top header, with the USB socket on the left, reads AREF, GND, 13, 12, ~11, ~10, ~9, 8, then 7, ~6, ~5, 4, ~3, 2, TX 1, RX 0. The power header reads IOREF, RESET, 3.3V, 5V, GND, GND, Vin, then A0 to A5. So there are three GND pins: one beside pin 13 and two on the power header. The small LED marked L is wired to pin 13.',
+  '- Later in the build: a Raspberry Pi 5 (4 GB) with an HP monitor for the Linux lessons, an RTL-SDR Blog V4 radio, Meshtastic mesh radios, and an old M1 MacBook turned into a Fedora Asahi home server.',
+  '',
+  'The lesson he is on, and exactly what the app shows him:'
+].join('\n');
