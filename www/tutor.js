@@ -211,7 +211,105 @@ const TF = (() => {
     '<text class="tf-t" x="132" y="116" text-anchor="middle">back through the Uno: the loop is closed</text>',
     'The loop: pin 13, resistor, LED long leg then short leg, GND, back through the board');
 
-  return { fig: name => (F[name] ? F[name]() : '') };
+  /* Diagrams the tutor draws in its replies: a ```breadboard JSON block. */
+  const CODES = ['black', 'brown', 'red', 'orange', 'yellow', 'green', 'blue', 'violet', 'grey', 'white'];
+  function bandsFor(ohms) {
+    let v = Number(ohms); if (!(v > 0)) return RES[220];
+    let m = 0; while (v >= 1000) { v /= 10; m++; } while (v < 100 && m > -2) { v *= 10; m--; }
+    const d = String(Math.round(v)).slice(0, 3).padStart(3, '0');
+    return [CODES[+d[0]], CODES[+d[1]], CODES[+d[2]], m >= 0 ? CODES[Math.min(m, 9)] : m === -1 ? 'gold' : 'grey', 'brown'];
+  }
+  const ohmsLabel = v => { v = Number(v); return !(v > 0) ? '' : v >= 1e6 ? +(v / 1e6).toFixed(2) + ' MΩ' : v >= 1000 ? +(v / 1000).toFixed(2) + ' kΩ' : v + ' Ω'; };
+  const escT = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).slice(0, 12);
+  function twoLeg(p1, p2, body) {
+    const dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy) || 1, ang = Math.atan2(dy, dx) * 180 / Math.PI, mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+    return { s: leg(p1.x, p1.y, p2.x, p2.y) + pin(p1.x, p1.y) + pin(p2.x, p2.y) + '<g transform="translate(' + mx + ' ' + my + ') rotate(' + ang + ')">' + body(len) + '</g>', mx, my };
+  }
+  function custom(src) {
+    let d; try { d = JSON.parse(String(src).trim()); } catch (e) { return ''; }
+    if (!d || typeof d !== 'object') return '';
+    const used = [], holes = [];
+    const hole = h => {
+      h = String(h == null ? '' : h).trim().replace('−', '-');
+      let m = /^([a-j])\s*(\d{1,2})$/i.exec(h);
+      if (m && +m[2] >= 1 && +m[2] <= 63) { used.push(+m[2]); return { l: m[1].toLowerCase(), r: +m[2] }; }
+      m = /^([LR])\s*([+-])\s*(\d{1,2})$/i.exec(h);
+      if (m && +m[3] >= 1 && +m[3] <= 63) { used.push(+m[3]); return { rail: m[1].toUpperCase() + m[2], r: +m[3] }; }
+      return null;
+    };
+    const parts = (Array.isArray(d.parts) ? d.parts : []).slice(0, 20).map(p => {
+      const t = String((p && p.type) || '').toLowerCase();
+      if (t === 'resistor' || t === 'photoresistor' || t === 'ldr') { const a = hole(p.from), b = hole(p.to); return a && b ? { t: t === 'resistor' ? 'res' : 'ldr', a, b, ohms: p.ohms } : null; }
+      if (t === 'led') { const a = hole(p.long || p.anode || p.plus), k = hole(p.short || p.cathode || p.minus); return a && k ? { t: 'led', a, k, colour: p.colour || p.color } : null; }
+      if (t === 'button') { const r = Array.isArray(p.rows) ? p.rows.map(Number) : []; if (r.length === 2 && r.every(x => x >= 1 && x <= 63)) { used.push(r[0], r[1]); return { t: 'btn', r: r.slice().sort((x, y) => x - y) }; } return null; }
+      return null;
+    }).filter(Boolean);
+    const isHole = x => /^([a-j]\s*\d{1,2}|[LR]\s*[+-−]\s*\d{1,2})$/i.test(String(x || '').trim());
+    const wl = (Array.isArray(d.wires) ? d.wires : []).slice(0, 20).map(w => {
+      if (!w) return null;
+      let from = w.from, to = w.to;
+      if (!isHole(from) && isHole(to)) { const b = hole(to); return b ? { tag: escT(from), b } : null; }
+      if (isHole(from) && !isHole(to)) { const b = hole(from); return b ? { tag: escT(to), b } : null; }
+      const a = hole(from), b = hole(to); return a && b ? { a, b } : null;
+    }).filter(Boolean);
+    if (!parts.length && !wl.length) return '';
+    let r0, r1;
+    if (Array.isArray(d.rows) && d.rows.length === 2) { r0 = +d.rows[0]; r1 = +d.rows[1]; }
+    if (!(r0 >= 1) || !(r1 >= r0)) { r0 = Math.min.apply(null, used) - 1; r1 = Math.max.apply(null, used) + 1; }
+    r0 = Math.max(1, Math.min(r0, Math.min.apply(null, used.length ? used : [r0]) - 1)); r1 = Math.min(63, Math.max(r1, Math.max.apply(null, used.length ? used : [r1]) + 1));
+    if (r1 - r0 < 5) r1 = Math.min(63, r0 + 5);
+    if (r1 - r0 > 26) r1 = r0 + 26;
+    const hl = (Array.isArray(d.highlight) ? d.highlight : []).map(Number).filter(r => r >= r0 && r <= r1).slice(0, 12).map(r => ({ row: r, half: 'top' }));
+    const tagged = wl.filter(w => w.tag);
+    const { g, s } = board({ r0, r1, wires: tagged, num: used.filter(r => r >= r0 && r <= r1), hl });
+    const pt = h => {
+      if (h.rail) return { x: h.rail === 'L+' ? g.rail[0] : h.rail === 'L-' ? g.rail[1] : h.rail === 'R+' ? g.railR[0] : g.railR[1], y: g.y(h.r) };
+      return { x: g.x(h.l), y: g.y(h.r) };
+    };
+    const inView = h => h.r >= r0 && h.r <= r1;
+    let b = s;
+    parts.forEach(p => {
+      if (p.t === 'btn') { if (p.r[0] >= r0 && p.r[1] <= r1) b += button(g, p.r[0], p.r[1]); return; }
+      if (p.t === 'led') {
+        if (!inView(p.a) || !inView(p.k)) return;
+        if (p.a.l && p.k.l && p.a.l === p.k.l) { b += led(g, p.a.l, p.a.r, p.k.r, p.colour); return; }
+        const A = pt(p.a), K = pt(p.k), c = p.colour || '#ff3b30', bx = (A.x + K.x) / 2 + P, by = (A.y + K.y) / 2;
+        b += leg(A.x, A.y, bx, by) + leg(K.x, K.y, bx, by) + pin(A.x, A.y) + pin(K.x, K.y) + '<circle cx="' + bx + '" cy="' + by + '" r="8.5" fill="' + c + '" fill-opacity=".85" stroke="' + c + '"/>' + halo('tf-lab', A.x + 6, A.y - 5, 'start', '+') + halo('tf-lab', K.x + 6, K.y - 5, 'start', '−');
+        return;
+      }
+      if (!inView(p.a) || !inView(p.b)) return;
+      const A = pt(p.a), B = pt(p.b);
+      if (p.t === 'res') {
+        const bands = bandsFor(p.ohms || 220), r = twoLeg(A, B, len => { const bw = Math.min(40, len - 10), step = (bw - 14) / 5; let q = '<rect x="' + (-bw / 2) + '" y="-5.5" width="' + bw + '" height="11" rx="5" fill="#b8cfe6"/>'; bands.forEach((col, i) => { q += '<rect x="' + (-bw / 2 + 6 + i * step + (i === 4 ? step * 0.5 : 0)) + '" y="-5.5" width="3" height="11" fill="' + BAND[col] + '"/>'; }); return q; });
+        b += r.s + halo('tf-lab', r.mx + 9, r.my + 4, 'start', ohmsLabel(p.ohms || 220));
+      } else {
+        b += twoLeg(A, B, () => '<circle r="9" fill="#e9dcc0" stroke="#b07a2e"/><path d="M-6 -3 h3 v6 h3 v-6 h3 v6 h3" fill="none" stroke="#b5462a" stroke-width="1.3"/>').s;
+      }
+    });
+    wl.forEach(w => {
+      if (w.tag) {
+        if (!inView(w.b)) return;
+        const B = pt(w.b), t = w.tag.toLowerCase(), c = /gnd|ground/.test(t) ? WIRE.gnd : /5v|3\.3|vin/.test(t) ? WIRE.v5 : /^a\d/.test(t) ? WIRE.an : WIRE.sig;
+        b += '<line x1="' + (g.TAG - 4) + '" y1="' + B.y + '" x2="' + B.x + '" y2="' + B.y + '" stroke="#000" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>' +
+          '<line x1="' + (g.TAG - 4) + '" y1="' + B.y + '" x2="' + B.x + '" y2="' + B.y + '" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round"/><circle cx="' + B.x + '" cy="' + B.y + '" r="2.8" fill="' + c + '"/>' +
+          '<rect x="2" y="' + (B.y - 9) + '" width="' + (g.TAG - 6) + '" height="18" rx="3" fill="var(--sheet)" stroke="' + c + '"/><text class="tf-tag" x="' + (2 + (g.TAG - 6) / 2) + '" y="' + (B.y + 4) + '" text-anchor="middle">' + w.tag + '</text>';
+        return;
+      }
+      if (!inView(w.a) || !inView(w.b)) return;
+      const A = pt(w.a), B = pt(w.b), c = (w.a.rail || '').endsWith('-') || (w.b.rail || '').endsWith('-') ? WIRE.gnd : (w.a.rail || '').endsWith('+') || (w.b.rail || '').endsWith('+') ? WIRE.v5 : WIRE.sig;
+      const cx = (A.x + B.x) / 2 - 14, cy = (A.y + B.y) / 2 - 14;
+      b += '<path d="M' + A.x + ' ' + A.y + ' Q' + cx + ' ' + cy + ' ' + B.x + ' ' + B.y + '" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/><path d="M' + A.x + ' ' + A.y + ' Q' + cx + ' ' + cy + ' ' + B.x + ' ' + B.y + '" fill="none" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round"/>' +
+        '<circle cx="' + A.x + '" cy="' + A.y + '" r="2.8" fill="' + c + '"/><circle cx="' + B.x + '" cy="' + B.y + '" r="2.8" fill="' + c + '"/>';
+    });
+    // flag two legs in one hole
+    const seen = {};
+    parts.forEach(p => [p.a, p.b, p.k].forEach(h => { if (h) holes.push(h); }));
+    wl.forEach(w => [w.a, w.b].forEach(h => { if (h) holes.push(h); }));
+    holes.forEach(h => { const k = (h.l || h.rail) + h.r; if (seen[k] && inView(h)) { const q = pt(h); b += '<circle cx="' + q.x + '" cy="' + q.y + '" r="6" fill="none" stroke="#ff3b30" stroke-width="2"/>'; } seen[k] = 1; });
+    return svg(g.W, g.H, b, 'Breadboard diagram from the tutor');
+  }
+
+  return { fig: name => (F[name] ? F[name]() : ''), custom };
 })();
 
 /* ---------- walkthroughs ---------- */
@@ -500,6 +598,17 @@ const TUTOR_SYS = [
   '- If he sends a photo, say what you can actually see, compare it with the wiring this step wants, and point to the exact hole or part to change. If the photo is too blurry, dark or angled to tell, say what shot would help (straight down, good light, close enough to read the row numbers). Do not guess at details you cannot see.',
   '- Stay on his build and learning. You cannot see his screen or press buttons in the app. To move through the lesson he taps Next or says next.',
   '- Safety: the Arduino and Pi run on 5 V, which is safe to touch. Speak up clearly about anything involving mains power, lithium batteries, soldering heat or the forge.',
+  '',
+  'Drawing the breadboard:',
+  '- When he asks how something should be wired, asks you to show him, or is stuck placing parts, draw it. The app turns a breadboard block into a picture of his upright board. Draw it rather than only describing holes in words, then explain the picture in a sentence or two.',
+  '- Format: valid JSON in a fenced block marked breadboard, for example:',
+  '```breadboard\n{"rows":[8,17],"parts":[{"type":"resistor","from":"c11","to":"c15","ohms":220},{"type":"led","long":"e11","short":"e10"}],"wires":[{"from":"pin 13","to":"a15"},{"from":"GND","to":"a10"}],"highlight":[10,11,15]}\n```',
+  '- Holes are a letter a to j plus a row 1 to 63, like c11. Rail holes are L+12 and L-12 (left rail) or R+12 and R-12 (right rail).',
+  '- Part types: "resistor" (from, to, ohms) and "photoresistor" (from, to), usually in one column; "led" (long and short leg holes); "button" ("rows": [top, bottom], two rows apart; it always straddles the centre gap in columns e and f).',
+  '- Wires: "from" an UNO pin name such as "pin 13", "pin 2", "GND", "5V" or "A0" (drawn coming in from the UNO on the left) to a hole, or from one hole to another hole or rail hole.',
+  '- "rows" is the range to show (at most 20 rows). "highlight" lists rows whose a to e strip should glow, to show what is joined.',
+  '- One leg per hole. Parts join by sharing a row on the same side of the gap, never by sharing a hole.',
+  '- To show a walkthrough diagram exactly as the app draws it, put [[fig:NAME]] on its own line, with a NAME listed in the walkthrough below.',
   '',
   'His setup:',
   '- Elegoo UNO R3 Super Starter Kit. The board is an Arduino Uno clone: in the IDE he picks Arduino Uno. He uses Arduino IDE 2 on Windows, and the board appears as a COM port. Some Elegoo boards need the CH340 driver.',
