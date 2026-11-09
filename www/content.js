@@ -239,19 +239,18 @@ const NODES = [
     done: 'sensor.csv holds an hour of timestamped readings.',
     terms: [] },
 
-  { id: 'E7', b: 'elec', phase: 5, t: 'First solder', mins: 60, xp: 20, req: ['E2'],
-    why: 'Breadboards wiggle loose. Anything that goes in the field gets soldered.',
+  { id: 'E7', b: 'elec', phase: 5, t: 'First solder', mins: 90, xp: 20, req: ['E2'], needs: ['solder'],
+    why: 'A breadboard is for trying things. From here on, most of the build gets soldered: header pins on boards, the panel switches and USB ports, the battery wiring. Solder is what keeps it working after a day in a pack.',
     learn: [
-      'Solder is a metal that melts at roughly 180 to 230 °C and joins parts electrically. It isn\'t glue; the joint carries current.',
-      'Heat the joint, not the solder. Hold the tip against both the pad and the leg for two or three seconds, then feed solder into the joint. A good joint is shiny and shaped like a small volcano.',
-      'Use flux-core solder, a damp sponge or brass wool for the tip, and ventilation. Wash your hands after leaded solder.',
-      'Creation Nation has an electronics bench; ask there for a practice board.',
+      'What you\'ll solder: 20 practice joints on a board that doesn\'t matter, then a real job from your kit. If your LCD screen\'s 16 pins came as a loose strip, solder them on and the deck gets a little status screen.',
+      'Two ways to do it: the electronics bench at Creation Nation once you\'re a member, or your own iron at home. A temperature-controlled iron kit is about $30 to $50 at Canadian Tire, Princess Auto or Amazon.ca, and a learn-to-solder practice kit is about $12.',
+      'Heat the joint, not the solder. Hold the tip on the pad and the pin together for two seconds, then feed solder into the joint. A good joint is shiny and shaped like a small cone.',
+      'The tip runs at about 350 °C. It goes in its stand every time you put it down. Work with moving air, wear glasses when clipping leads, and wash your hands after leaded solder.',
       'It\'s heat control and clean surfaces, the same as the forge at a much smaller scale.'
     ],
-    mission: 'Solder a practice kit or a row of header pins, at least 20 joints, and photograph your best and worst for the Field log.',
-    done: 'Twenty joints done and the photo logged.',
+    mission: 'Make 20 practice joints, then solder the header pins onto your kit\'s LCD (or a header strip onto perfboard). Photograph your best and worst joints for the Field log.',
+    done: 'Twenty good practice joints, a soldered header, and the photo logged.',
     terms: ['solder', 'flux'] },
-
   { id: 'E8', b: 'elec', phase: 4, t: 'Power budget', mins: 45, xp: 15, req: ['E3'],
     why: 'Before buying batteries, work out what the deck draws and how long it will run.',
     learn: [
@@ -290,7 +289,7 @@ const NODES = [
     terms: ['esp32'] },
 
   /* ---------------- CAD & FAB ---------------- */
-  { id: 'C1', b: 'cad', phase: 3, t: 'Makerspace in', mins: 120, xp: 20, req: [],
+  { id: 'C1', b: 'cad', phase: 3, t: 'Makerspace in', mins: 120, xp: 20, req: [], needs: ['membership'],
     why: 'Creation Nation has about ten printers, a laser cutter and an electronics bench, and people who have built Pi projects.',
     learn: [
       'Creation Nation Makerspace, 440 Rosser Avenue, Brandon. Membership is $50/month plus tax, with 24/7 access once you\'re in.',
@@ -303,10 +302,10 @@ const NODES = [
     done: 'You\'re signed off on the printers.',
     terms: ['makerspace'] },
 
-  { id: 'C2', b: 'cad', phase: 3, t: 'Tinkercad basics', mins: 60, xp: 10, req: ['C1'],
+  { id: 'C2', b: 'cad', phase: 3, t: 'Tinkercad basics', mins: 60, xp: 10, req: [],
     why: 'You chose to design the case yourself. This is where that skill starts.',
     learn: [
-      'Tinkercad is free CAD in a browser. You build parts by stacking simple shapes and cutting holes.',
+      'Tinkercad is free CAD in a browser. You build parts by stacking simple shapes and cutting holes. Do this one at home before your printer training, then print the result there.',
       'Drag a box onto the workplane and type exact sizes into its handles. Work in millimetres.',
       'Set any shape to Hole, group it with a solid (Ctrl+G), and it cuts away.',
       'Align and Group are most of the job. Think like laying out stock at the anvil: size the blank, then mark what comes off.'
@@ -316,7 +315,7 @@ const NODES = [
     done: 'Tag designed and saved as an STL file.',
     terms: ['cad', 'stl'] },
 
-  { id: 'C3', b: 'cad', phase: 3, t: 'Print it', mins: 60, xp: 10, req: ['C2'],
+  { id: 'C3', b: 'cad', phase: 3, t: 'Print it', mins: 60, xp: 10, req: ['C1', 'C2'],
     why: 'Turning a file into a part you can hold, and learning which settings matter.',
     learn: [
       'A slicer (Bambu Studio, PrusaSlicer or Cura; use whatever the makerspace runs) turns an STL into layer-by-layer printer instructions.',
@@ -491,6 +490,7 @@ const PARTS = [
   { id: 'cord', short: 'monitor cord', phase: 1, name: 'Canadian power cord for the HP monitor\'s power brick', price: 10, approx: true, where: 'Canadian Tire, Staples or Amazon.ca', note: 'The brick takes 100 to 240 V, so only the cord changes. Match the socket on the brick: three-lobed cloverleaf (C5) or figure-8 (C7).' },
   { id: 'keyboard', short: 'keyboard', phase: 1, name: 'Logitech K400 Plus keyboard and trackpad', price: 40, approx: true, where: 'Amazon.ca or local', url: 'https://www.amazon.ca/s?k=logitech+k400+plus', note: 'Goes on sale often.' },
   { id: 'sdr', short: 'SDR', phase: 2, name: 'RTL-SDR Blog V4 with dipole antenna kit', price: 75, approx: true, where: 'Amazon.ca', url: 'https://www.amazon.ca/s?k=rtl-sdr+blog+v4+dipole', note: 'Buy the kit with the telescoping dipole. It tunes shortwave directly, so no upconverter later.' },
+  { id: 'solder', short: 'soldering kit', phase: 5, name: 'Soldering iron kit and a practice board', price: 55, approx: true, where: 'Canadian Tire, Princess Auto or Amazon.ca', note: 'A temperature-controlled iron with a stand, rosin-core solder and brass wool, plus a learn-to-solder kit. Using the makerspace bench instead? Mark this arrived once you\'re a member.' },
   { id: 'membership', short: 'membership', phase: 3, name: 'Creation Nation membership, 2 months', price: 100, where: '440 Rosser Ave, Brandon', url: 'https://cnm.bnrc.ca/about-us/', note: '$50/month plus tax.' },
   { id: 'calipers', short: 'calipers', phase: 3, name: 'Digital calipers', price: 25, approx: true, where: 'Local hardware store', note: 'For measuring the screen, Pi and case.' },
   { id: 'case', short: 'Nanuk case', phase: 3, name: 'NANUK-R 910 hard case', price: 96.95, where: 'nanuk.com', url: 'https://nanuk.com/en-ca/collections/910', note: 'Made in Canada. Interior 336 × 234 × 104 mm. A Pelican 1150 also works.' },

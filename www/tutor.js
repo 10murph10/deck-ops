@@ -140,6 +140,19 @@ const TF = (() => {
     parts: [{ ldr: ['c', 26, 28] }, { res: ['d', 28, 32], val: 10000, label: '10 kΩ' }],
     wires: [{ tag: '5V', row: 26, c: 'v5' }, { tag: 'A0', row: 28, c: 'an' }, { tag: 'GND', row: 32, c: 'gnd' }] });
 
+  F.joints = () => {
+    const one = (x, kind, label, sub) => {
+      let q = '<rect x="' + (x - 34) + '" y="86" width="68" height="10" fill="#2e6b3a"/>' + '<rect x="' + (x - 12) + '" y="82" width="24" height="5" fill="#c9a227"/>';
+      q += '<rect x="' + (x - 2) + '" y="34" width="4" height="70" fill="#c9ced3"/>';
+      if (kind === 'good') q += '<path d="M' + (x - 13) + ' 83 Q' + (x - 4) + ' 78 ' + (x - 3) + ' 52 L' + (x + 3) + ' 52 Q' + (x + 4) + ' 78 ' + (x + 13) + ' 83 Z" fill="#d8dde2" stroke="#ffffff" stroke-width=".8"/>';
+      if (kind === 'cold') q += '<circle cx="' + x + '" cy="66" r="10" fill="#9aa1a8" stroke="#6d747a"/>' + '<line x1="' + (x - 11) + '" y1="80" x2="' + (x + 11) + '" y2="80" stroke="#ff3b30" stroke-dasharray="2 2"/>';
+      if (kind === 'bridge') q = '<rect x="' + (x - 34) + '" y="86" width="68" height="10" fill="#2e6b3a"/>' + [x - 12, x + 12].map(px => '<rect x="' + (px - 9) + '" y="82" width="18" height="5" fill="#c9a227"/><rect x="' + (px - 2) + '" y="34" width="4" height="70" fill="#c9ced3"/>').join('') + '<path d="M' + (x - 22) + ' 83 Q' + x + ' 52 ' + (x + 22) + ' 83 Z" fill="#c4c9ce" stroke="#ff3b30" stroke-width="1"/>';
+      q += '<text class="tf-lab" x="' + x + '" y="20" text-anchor="middle">' + label + '</text><text class="tf-t" x="' + x + '" y="116" text-anchor="middle">' + sub + '</text>';
+      return q;
+    };
+    return svg(300, 124, one(50, 'good', 'Good', 'shiny cone') + one(150, 'cold', 'Cold', 'ball, gap at pad') + one(250, 'bridge', 'Bridge', 'two pins joined'),
+      'Solder joints side on: a good joint is a shiny cone, a cold joint is a ball that never bonded to the pad, a bridge joins two pins');
+  };
   F.ledLegs = () => svg(240, 176,
     '<path d="M70 78 V42 a22 22 0 0 1 44 0 V78 Z" fill="#ff3b30" fill-opacity=".8" stroke="#ff3b30"/>' +
     '<path d="M64 78 H116 V86 H64 Z" fill="#ff3b30" fill-opacity=".9"/>' +
@@ -574,6 +587,223 @@ const TUTOR = {
     ]
   }
 };
+
+/* ---------- more walkthroughs ---------- */
+Object.assign(TUTOR, {
+  E7: {
+    gear: ['Soldering iron with a stand (temperature-controlled is best)', 'Rosin-core solder, 0.6 to 0.8 mm', 'Damp sponge or brass wool', 'A practice board, or perfboard and a strip of header pins', 'Your kit\'s LCD screen and its 16-pin header', 'Safety glasses, side cutters, somewhere with moving air'],
+    steps: [
+      { t: 'Why solder, and why now',
+        say: 'A breadboard holds parts with springy clips. That\'s perfect for trying ideas and useless in a pack that gets bounced around. Solder melts into a joint and sets, joining parts for good, electrically and mechanically.',
+        why: 'From here on most of the build is soldered: header pins on boards, the panel switches and USB ports, the battery wiring. Every one of those uses the same few movements. Practise them now on parts that don\'t matter.',
+        ask: [{ q: 'Which job needs solder rather than the breadboard?', opts: [
+          ['Wiring the toggle switches on the deck\'s front panel', true, 'Right. It lives in the case and gets carried around; clips would shake loose.'],
+          ['Trying a new sensor to see what it reads', false, 'That\'s breadboard work: quick to change, nothing permanent.']] }] },
+      { t: 'What you\'re soldering',
+        say: ['First, practice joints on a board that doesn\'t matter. Then a real job from your own kit: the LCD screen, the green or blue 16 × 2 character display.', 'If its 16 pins came as a separate strip, they have to be soldered on before the screen works. Pressing them into the holes only touches a pin or two. Once it\'s on, the screen can show text from the deck: a reading, a mesh message, a temperature.'],
+        do: ['Find the LCD in your kit. Are its 16 pins already attached, or a loose strip?'],
+        ask: [{ q: 'What did you find?', opts: [
+          ['A loose strip of 16 pins', true, 'That\'s your real job for this lesson, after the practice joints.'],
+          ['The pins are already soldered on', true, 'Then your real job is a strip of header pins soldered onto perfboard. Any spare board works.']] }] },
+      { t: 'Get an iron',
+        say: 'Two routes. The makerspace electronics bench has irons, solder and fume fans, and people who\'ll check your joints. Or set up at home: a temperature-controlled iron kit is about $30 to $50 at Canadian Tire, Princess Auto or Amazon.ca, and a learn-to-solder practice kit (a small board with LEDs and resistors) is about $12.',
+        why: 'You\'ll solder all through the build, so your own iron pays for itself. The makerspace is the free option if you\'d rather wait.',
+        do: ['Pick a route. Buying? Mark the soldering kit as ordered in Parts. Using the makerspace? Mark it arrived once you\'re a member.'] },
+      { t: 'Safe setup',
+        say: 'The tip runs at about 330 to 370 °C. Treat it like a hot piece off the fire: it goes in its stand every single time you put it down. Work where air moves so the rosin smoke drifts away from your face. Wear glasses when you clip leads, because the cut ends fly. Wash your hands after handling leaded solder.',
+        ask: [{ q: 'You need both hands to hold a part steady. Where does the iron go?', opts: [
+          ['In its stand', true, 'Every time. Most soldering burns come from an iron set down on the bench.'],
+          ['On the bench, tip pointing away', false, 'It rolls, and the bench or a cable melts. Stand, every time.']] }] },
+      { t: 'Tin the tip',
+        say: 'Turn the iron on, about 350 °C if it has a dial. Wipe the hot tip on the damp sponge or brass wool, then melt a little solder onto it so it goes shiny silver. That\'s called tinning.',
+        why: 'A shiny, wet tip passes heat into the joint fast. A dull black tip doesn\'t, and the solder balls up instead of flowing.',
+        do: ['Tin the tip now, and re-tin it every few joints.'],
+        ask: [{ q: 'Your tip has gone dull and black and solder won\'t stick to it. What now?', opts: [
+          ['Wipe it clean and melt fresh solder on', true, 'Right. Clean, then re-tin.'],
+          ['Turn the heat way up', false, 'More heat just burns the tip faster. Clean it and re-tin it.']] }] },
+      { t: 'One good joint', fig: 'joints',
+        cap: 'Side view. Good: a shiny cone wetting both the pad and the pin. Cold: a ball that never bonded to the pad. Bridge: a blob joining two pins.',
+        say: 'Touch the tip so it heats the pad and the pin together. After two seconds, feed solder into the joint from the other side, not onto the iron. Let a little flow in, pull the solder away, then the iron. Hold still for three seconds while it sets.',
+        why: 'Solder flows toward heat. If the pad and pin are hot, it wicks around them and bonds. If only the iron is hot, it balls up and the joint is weak.',
+        do: ['Make one joint on the practice board, then look at it closely.'],
+        ask: [{ q: 'Which joint is good?', opts: [
+          ['Shiny and smooth, shaped like a small cone around the pin', true, 'That\'s the one: the solder wetted both the pad and the pin.'],
+          ['A round ball sitting on top of the pad', false, 'That\'s a cold joint: the pad wasn\'t hot enough, so the solder never bonded. Reheat with the tip on pad and pin together.'],
+          ['Dull and grainy', false, 'That\'s a disturbed or cold joint: it moved while setting, or didn\'t get hot enough. Reheat until it flows, then hold still.']] }],
+        hints: ['Heat the pad and pin, not the solder.', 'Count two seconds of heat before the solder touches.'] },
+      { t: 'Twenty joints',
+        do: ['Make 20 practice joints.', 'After every five, inspect them: shiny cones are good; balls, gaps and grainy ones get reheated.', 'If a blob joins two pins (a bridge), drag the clean hot tip between them to split it.'],
+        ask: [{ q: 'How do they look?', opts: [
+          ['Mostly shiny cones', true, 'You\'re ready for the real job.'],
+          ['Lots of balls sitting on top', null, 'Not enough heat on the pad. Hold the tip on pad and pin a full two seconds before adding solder, and keep the tip tinned.'],
+          ['Blobs joining neighbours', null, 'Too much solder. Use less, and split bridges by dragging the clean hot tip between the pins.'],
+          ['Pads coming off the board', null, 'Too much heat for too long. Two or three seconds, then away. It happens on cheap practice boards; move on.']] }] },
+      { t: 'The real job: the LCD header',
+        say: 'Use the breadboard as a jig. Push the long ends of the 16-pin strip into the breadboard, then drop the LCD onto the short ends so they poke up through its holes. Now it\'s held square while you work. Quick two-second joints won\'t hurt the breadboard.',
+        why: 'Tacking the two end pins first means a crooked header is a two-second fix, not 16 joints to undo.',
+        do: ['Long ends of the header into the breadboard, LCD on top.', 'Solder pin 1 and pin 16 first, at the two ends.', 'Check the screen sits flat and square. If it doesn\'t, reheat one end and nudge it.', 'Solder the other 14 and inspect every joint.', 'Photograph your best and worst joints for the Field log.'],
+        ask: [{ q: 'Why solder the two end pins first?', opts: [
+          ['To fix the header square before doing the rest', true, 'Right. Then the rest hold it there.'],
+          ['They need more solder than the others', false, 'They don\'t. Think about keeping it straight.']] }],
+        hints: ['Want to see it work? Elegoo\'s tutorial has an LCD lesson. Ask the tutor to walk you through wiring it to show DECK OPS.'] }
+    ]
+  },
+
+  C2: {
+    gear: ['Your Windows computer with a mouse (Tinkercad is fiddly on a phone)', 'A free Tinkercad account at tinkercad.com'],
+    steps: [
+      { t: 'What CAD is',
+        say: 'CAD means drawing parts in 3D on the computer, at exact sizes, so a printer can make them. Tinkercad builds everything from simple shapes: boxes, cylinders, text. Solid shapes add material. Shapes set to Hole take it away.',
+        why: 'Every bracket, frame and mount in your case starts here. The printer only makes what you draw.',
+        ask: [{ q: 'You want a 4 mm hole through a plate. How?', opts: [
+          ['Put a 4 mm cylinder through the plate, set it to Hole, and group them', true, 'Right. Hole plus Group is how every cut is made.'],
+          ['Draw a black circle on top of it', false, 'Colour doesn\'t cut anything. It has to be a Hole shape, grouped with the plate.']] }] },
+      { t: 'Set up',
+        say: 'The blue grid is the workplane. Right-drag turns the view, scroll zooms, and the cube in the top left snaps to Top, Front and so on. The house button resets the view.',
+        do: ['Go to tinkercad.com and sign up (free).', 'Create new design, then 3D Design.', 'Bottom right of the workplane: check the units say millimetres.'] },
+      { t: 'The blank',
+        say: 'Drag a Box from the shapes panel on the right onto the workplane. Click it and white handles appear. Click a size number on a handle and type the exact value.',
+        why: 'Typing sizes instead of dragging is the difference between a part that fits and one that almost fits.',
+        do: ['Make the box 40 long, 25 wide and 3 high (mm).'],
+        ask: [{ q: 'Your box is 40 × 25 but 20 mm tall. Fix?', opts: [
+          ['Click the height number and type 3', true, 'Right. Change only what\'s wrong.'],
+          ['Scale the whole thing down', false, 'That shrinks the length and width too. Change only the height.']] }] },
+      { t: 'Raised name',
+        say: 'Drag Text onto the workplane. In its settings box, type your name and set its height to 1 mm. Size it to fit on the tag. Then lift it so it starts exactly on top of the tag: select it, click the small black cone above it, and type 3.',
+        do: ['Add Text with your name, 1 mm tall.', 'Raise it 3 mm so it sits on the tag.', 'Select the tag and the text, press L to Align, and centre them.'],
+        ask: [{ q: 'From above it looks right, but the name floats 2 mm over the tag. Why?', opts: [
+          ['It\'s raised 5 mm instead of 3', true, 'Right. It should start exactly where the tag stops: 3 mm up.'],
+          ['The text is too thin', false, 'Thickness isn\'t the problem. Look at how high it starts.']] }] },
+      { t: 'The hole',
+        say: 'Drag in a Cylinder. Make it 4 × 4 mm across and taller than the tag (10 mm is fine), set it to Hole, and move it to a corner with about 2 mm of plastic around it. Select everything and group it with Ctrl+G.',
+        why: 'A hole needs plastic around it or it tears out. Give it at least 2 mm.',
+        ask: [{ q: 'You set the cylinder to Hole, but there\'s no hole in the tag. Why?', opts: [
+          ['They aren\'t grouped yet', true, 'Right. A hole only cuts once it\'s grouped with the solid.'],
+          ['The hole is too small', false, 'Size isn\'t it. A hole only cuts once you group it with the tag.']] }] },
+      { t: 'Export it',
+        say: 'An STL file is just the shape: no colours, no settings. It\'s what slicers and printers read.',
+        do: ['Export (top right), then .STL.', 'Save it where you\'ll find it, and put a copy on a USB stick for the makerspace.', 'Bring it to your printer training and print it there; that\'s lesson C3.'] }
+    ]
+  },
+
+  L1: {
+    gear: ['Pi 5 kit: board, aluminum case, 27 W USB-C power supply, microSD card, micro-HDMI cable', 'Keyboard and mouse', 'The HP monitor, plugged in'],
+    steps: [
+      { t: 'What you\'re building',
+        say: 'The Raspberry Pi is a whole computer on a card-sized board: processor, memory, Wi-Fi, USB. It has no screen or keyboard of its own, and its hard drive is the microSD card. Today it becomes your bench deck.',
+        ask: [{ q: 'Where does the Pi keep its operating system and your files?', opts: [
+          ['On the microSD card', true, 'Right. Swap the card and you swap the whole computer.'],
+          ['On the board itself', false, 'The Pi has no built-in drive. Everything lives on the card.']] }] },
+      { t: 'Into the case',
+        say: 'The aluminum case is also the heat sink. Thermal pads sit between the hot chips and the case so heat flows into the metal.',
+        why: 'Without the pads the chip gets hot and slows itself down to protect itself.',
+        do: ['Peel the film off the thermal pads and place them where the kit\'s instructions show.', 'Set the Pi in the case and screw it closed: snug, not cranked.'],
+        ask: [{ q: 'What do the thermal pads do?', opts: [
+          ['Carry heat from the chips into the metal case', true, 'Right.'],
+          ['Hold the board in place', false, 'The screws do that. The pads move heat.']] }] },
+      { t: 'Card in, cables on',
+        do: ['Slide the microSD card into the slot on the underside, label facing away from the board, until it stops. The kit\'s card already has Raspberry Pi OS on it.', 'Micro-HDMI cable from the port beside the USB-C power jack to an HDMI input on the HP.', 'Keyboard and mouse into the USB ports.', 'Power in last. The Pi starts as soon as it has power.'],
+        ask: [{ q: 'The monitor says no signal. First thing to check?', opts: [
+          ['That the HP is set to the HDMI input the cable is plugged into', true, 'Right. Use the monitor\'s input button, then check the cable is in the port beside the power jack.'],
+          ['Reinstall the operating system', false, 'Way too far. Start with the monitor\'s input setting and the cable.']] }] },
+      { t: 'The setup wizard',
+        do: ['Country Canada, language English, time zone Winnipeg.', 'Pick a username and a password you\'ll remember, and write the password down. You\'ll type it often.', 'Join your Wi-Fi.', 'Say yes to updates. It takes 10 to 20 minutes; let it finish.', 'Restart when it asks.'],
+        ask: [{ q: 'What will the password you just made be used for?', opts: [
+          ['Logging in, and approving admin commands like updates', true, 'Right. In L4, sudo asks for it every time.'],
+          ['Only the Wi-Fi', false, 'That\'s a separate password. This one is your account on the Pi.']] }] },
+      { t: 'Terminal, then shut down properly',
+        do: ['Click the black terminal icon in the top bar. A window with a prompt opens. That\'s where most lessons happen.', 'To turn it off: Raspberry menu, then Shutdown. Wait for the green light to stop flashing, then unplug.'],
+        why: 'Pulling the plug while it\'s writing to the card can corrupt it, and then you\'re rebuilding.',
+        ask: [{ q: 'What do you see?', opts: [
+          ['A window with a prompt like you@raspberrypi:~ $', true, 'That\'s L1 done.'],
+          ['A rainbow screen and nothing else', null, 'The Pi isn\'t reading the card. Unplug, push the card in firmly until it stops, and power up again.'],
+          ['A lightning bolt in the corner', null, 'That\'s the low-power warning. Use the kit\'s 27 W supply, not a phone charger.']] }] }
+    ]
+  },
+
+  L2: {
+    gear: ['The deck running, with a terminal open'],
+    steps: [
+      { t: 'Reading the prompt',
+        say: 'In the terminal you type commands instead of clicking, and Enter runs them. The prompt tells you who and where you are: you@raspberrypi:~ $ means user, computer name, then folder. The ~ means your home folder. (The computer becomes deck in L6.)',
+        ask: [{ q: 'In you@raspberrypi:~ $, what does ~ mean?', opts: [
+          ['You\'re in your home folder', true, 'Right. Your own files live there.'],
+          ['Something is wrong', false, 'It\'s just shorthand for your home folder.']] }] },
+      { t: 'Where am I, what\'s here',
+        do: ['Type pwd and press Enter. It prints the folder you\'re in, like /home/you.', 'Type ls and press Enter. It lists what\'s inside: Desktop, Documents and so on.'],
+        ask: [{ q: 'pwd printed /home/you. What does ls show you?', opts: [
+          ['The files and folders inside /home/you', true, 'Right. Only what\'s in the folder you\'re in.'],
+          ['Every file on the computer', false, 'Just the folder you\'re in.']] }] },
+      { t: 'Moving around',
+        say: 'Capitals matter. Documents and documents are different names. Tab finishes names for you, and the up arrow brings back earlier commands.',
+        do: ['cd Documents moves into Documents. Run pwd to check.', 'cd .. moves up one folder. cd ~ jumps home from anywhere.', 'Type cd Doc and press Tab. It finishes the name.'],
+        ask: [{ q: 'You\'re in /home/you/Documents and type cd .. Where are you now?', opts: [
+          ['/home/you', true, 'Right. Up one level.'],
+          ['/', false, '.. is one level up, not all the way to the top.']] }] },
+      { t: 'Make your deck folder',
+        do: ['mkdir -p ~/deck/logs makes a deck folder with a logs folder inside it.', 'cd ~/deck/logs, then pwd.'],
+        why: '-p makes any missing folders on the way and doesn\'t complain if they already exist.',
+        ask: [{ q: 'What does pwd print?', opts: [
+          ['/home/you/deck/logs', true, 'That\'s the mission done.'],
+          ['No such file or directory', null, 'Check the spelling and capitals: deck, not Deck. Run the mkdir line again exactly as written.']] }] }
+    ]
+  },
+
+  L3: {
+    gear: ['The deck running, with a terminal open'],
+    steps: [
+      { t: 'Write a file with nano',
+        say: 'nano is a plain text editor inside the terminal. Its shortcuts are listed along the bottom, where ^ means Ctrl.',
+        do: ['nano ~/deck/notes.txt opens a new file.', 'Type three lines about today.', 'Ctrl+O then Enter saves. Ctrl+X quits.'],
+        ask: [{ q: 'The bottom of nano shows ^X Exit. What do you press?', opts: [
+          ['Ctrl and X together', true, 'Right. ^ is how Linux writes Ctrl.'],
+          ['Shift and 6, then X', false, '^ isn\'t a key to type here. It means Ctrl.']] }] },
+      { t: 'Read it back',
+        do: ['cat ~/deck/notes.txt prints the file to the screen.'],
+        ask: [{ q: 'cat prints nothing at all. Most likely?', opts: [
+          ['The file wasn\'t saved', true, 'Right. Reopen it with nano, then Ctrl+O and Enter before Ctrl+X.'],
+          ['cat is broken', false, 'cat is fine. Check that the file actually got saved.']] }] },
+      { t: 'Copy, rename, delete',
+        say: 'cp copies, mv moves or renames, rm deletes. rm has no trash can: the file is gone for good.',
+        do: ['cd ~/deck', 'cp notes.txt notes-copy.txt, then ls to see both.', 'rm notes-copy.txt, then ls again.'],
+        ask: [{ q: 'You type rm notes.txt by mistake. Can you get it back from the trash?', opts: [
+          ['No, rm deletes for good', true, 'Right. That\'s why you read rm lines twice before pressing Enter.'],
+          ['Yes, from the trash on the desktop', false, 'The terminal doesn\'t use the trash. rm is permanent.']] }] },
+      { t: 'Check',
+        do: ['ls ~/deck'],
+        ask: [{ q: 'What does it show?', opts: [
+          ['logs and notes.txt', true, 'That\'s L3.'],
+          ['notes-copy.txt is still there', null, 'Run rm ~/deck/notes-copy.txt and check again.']] }] }
+    ]
+  },
+
+  L4: {
+    gear: ['The deck running on Wi-Fi, with a terminal open'],
+    steps: [
+      { t: 'Packages',
+        say: 'Software on the Pi comes as packages from Raspberry Pi\'s servers, and apt is the tool that fetches them. Think of it as an app store you drive by typing.',
+        why: 'Every tool you add from here on, from radio drivers to Python libraries, installs this way.' },
+      { t: 'sudo and your password',
+        say: 'Installing changes the whole system, so it needs admin rights. Putting sudo in front of a command runs it as the administrator. It asks for your password, and nothing shows as you type. That\'s on purpose.',
+        ask: [{ q: 'You type your password after sudo and nothing appears on screen. What\'s happening?', opts: [
+          ['It\'s hidden on purpose; finish typing and press Enter', true, 'Right. No dots, no stars, just type it.'],
+          ['The keyboard stopped working', false, 'It\'s hiding the password on purpose. Type it and press Enter.']] }] },
+      { t: 'Update everything',
+        do: ['sudo apt update refreshes the list of what\'s available.', 'sudo apt full-upgrade installs the newer versions. When it asks "Do you want to continue? [Y/n]", press Y and Enter.'],
+        ask: [{ q: 'What\'s the difference between update and full-upgrade?', opts: [
+          ['update checks what\'s new; full-upgrade installs it', true, 'Right. Always in that order.'],
+          ['They do the same thing', false, 'update only refreshes the list. Nothing is installed until full-upgrade.']] }] },
+      { t: 'Install htop',
+        do: ['sudo apt install htop', 'Run htop. The bars at the top are the four processor cores working; q quits.'],
+        ask: [{ q: 'What happened?', opts: [
+          ['Four moving bars and a list of programs', true, 'That\'s L4, and it opens Radio ears.'],
+          ['Unable to locate package htop', null, 'The package list is out of date. Run sudo apt update first, then install again.'],
+          ['Could not get lock', null, 'Another update is running in the background, often just after boot. Wait five minutes and try again.']] }] },
+      { t: 'From memory',
+        say: 'The mission is doing it without notes. Tomorrow, open a terminal and run the update, the full-upgrade and an install from memory.' }
+    ]
+  }
+});
 
 /* Context for the Ask Claude handoff, by branch */
 const TUTOR_CTX = {

@@ -1,6 +1,6 @@
 {
   "name": "deck-ops",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "description": "Deck Ops: cyberdeck build tracker for Android and the web",
   "scripts": {

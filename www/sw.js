@@ -1,5 +1,5 @@
 /* Offline cache for the web app. The Android app ships its files inside the app and doesn't use this. */
-const CACHE = 'deckops-1.4.1';
+const CACHE = 'deckops-1.5.0';
 const SHELL = ['./', 'index.html', 'styles.css', 'content.js', 'content-ext.js', 'tutor.js', 'app.js', 'cap.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'fonts/vt323.woff2', 'fonts/martian.woff2'];
 self.addEventListener('install', e => {
