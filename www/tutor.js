@@ -687,7 +687,7 @@ Object.assign(TUTOR, {
   },
 
   L1: {
-    gear: ['Pi 5 kit: board, aluminum case, 27 W USB-C power supply, microSD card, micro-HDMI cable', 'Keyboard and mouse', 'The HP monitor, plugged in'],
+    gear: ['Pi 5 kit: board, aluminum case, 27 W USB-C power supply, microSD card, micro-HDMI cable', 'Pebble 2 keyboard and mouse, switched on, with the Logi Bolt receiver', 'The HP monitor, plugged in'],
     steps: [
       { t: 'What you\'re building',
         say: 'The Raspberry Pi is a whole computer on a card-sized board: processor, memory, Wi-Fi, USB. It has no screen or keyboard of its own, and its hard drive is the microSD card. Today it becomes your bench deck.',
@@ -702,7 +702,7 @@ Object.assign(TUTOR, {
           ['Carry heat from the chips into the metal case', true, 'Right.'],
           ['Hold the board in place', false, 'The screws do that. The pads move heat.']] }] },
       { t: 'Card in, cables on',
-        do: ['Slide the microSD card into the slot on the underside, label facing away from the board, until it stops. The kit\'s card already has Raspberry Pi OS on it.', 'Micro-HDMI cable from the port beside the USB-C power jack to an HDMI input on the HP.', 'Keyboard and mouse into the USB ports.', 'Power in last. The Pi starts as soon as it has power.'],
+        do: ['Slide the microSD card into the slot on the underside, label facing away from the board, until it stops. The kit\'s card already has Raspberry Pi OS on it.', 'Micro-HDMI cable from the port beside the USB-C power jack to an HDMI input on the HP.', 'Plug the keyboard\'s tiny Logi Bolt USB receiver into a USB port. The keyboard and mouse work through it straight away, before any Bluetooth setup.', 'Power in last. The Pi starts as soon as it has power.'],
         ask: [{ q: 'The monitor says no signal. First thing to check?', opts: [
           ['That the HP is set to the HDMI input the cable is plugged into', true, 'Right. Use the monitor\'s input button, then check the cable is in the port beside the power jack.'],
           ['Reinstall the operating system', false, 'Way too far. Start with the monitor\'s input setting and the cable.']] }] },
@@ -845,6 +845,7 @@ const TUTOR_SYS = [
   '- His resistors are usually 5-band metal film on blue bodies: 220 ohm is red red black black brown, 1 kilo-ohm is brown black black brown brown, 10 kilo-ohm is brown black black red brown. 4-band ones: 220 is red red brown gold.',
   '- His breadboard is an 830-point board used upright. Rows are numbered 1 to 63 from top to bottom. Columns a to e are the left half and f to j the right half, with the centre gap between e and f. In each row, a to e are joined together and f to j are joined together; nothing joins across the gap. A power rail runs down each outer edge, each with two columns: + beside the red line (the left column of each rail) and - beside the blue line (the right column). Rails run the full length.',
   '- The UNO top header, with the USB socket on the left, reads AREF, GND, 13, 12, ~11, ~10, ~9, 8, then 7, ~6, ~5, 4, ~3, 2, TX 1, RX 0. The power header reads IOREF, RESET, 3.3V, 5V, GND, GND, Vin, then A0 to A5. So there are three GND pins: one beside pin 13 and two on the power header. The small LED marked L is wired to pin 13.',
+  '- His deck case is a Pelican Vault V100: interior 279 × 203 mm, 114 mm deep (base 74 mm, lid 40 mm). The plan is the screen in the lid on a printed bezel and an aluminum panel over the base with the Pi underneath. His keyboard is a Logitech Pebble 2 Combo (Bluetooth, with a Logi Bolt USB receiver); at 279.5 mm long it travels outside the case.',
   '- Later in the build: a Raspberry Pi 5 (4 GB) with an HP monitor for the Linux lessons, an RTL-SDR Blog V4 radio, Meshtastic mesh radios, and an old M1 MacBook turned into a Fedora Asahi home server.',
   '',
   'The lesson he is on, and exactly what the app shows him:'
