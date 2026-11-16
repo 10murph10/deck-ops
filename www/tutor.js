@@ -725,7 +725,7 @@ Object.assign(TUTOR, {
     gear: ['The deck running, with a terminal open'],
     steps: [
       { t: 'Reading the prompt',
-        say: 'In the terminal you type commands instead of clicking, and Enter runs them. The prompt tells you who and where you are: you@raspberrypi:~ $ means user, computer name, then folder. The ~ means your home folder. (The computer becomes deck in L6.)',
+        say: 'In the terminal you type commands instead of clicking, and Enter runs them. The prompt tells you who and where you are: you@raspberrypi:~ $ means user, computer name, then folder. The ~ means your home folder. (The computer becomes secundus-station in L6.)',
         ask: [{ q: 'In you@raspberrypi:~ $, what does ~ mean?', opts: [
           ['You\'re in your home folder', true, 'Right. Your own files live there.'],
           ['Something is wrong', false, 'It\'s just shorthand for your home folder.']] }] },
@@ -808,10 +808,10 @@ Object.assign(TUTOR, {
 /* Context for the Ask Claude handoff, by branch */
 const TUTOR_CTX = {
   elec: 'an Elegoo UNO R3 Super Starter Kit and the Arduino IDE on Windows',
-  linux: 'a Raspberry Pi 5 (4 GB) running Raspberry Pi OS, on an HP monitor',
+  linux: 'a Raspberry Pi 5 (4 GB) running Raspberry Pi OS, on an HP monitor; the deck\'s callsign is Secundus Station (hostname secundus-station)',
   radio: 'an RTL-SDR Blog V4 on my Raspberry Pi 5',
   cad: 'Tinkercad and the 3D printers at the Creation Nation makerspace',
-  base: 'my old M1 MacBook, which I\'m turning into a home server with Fedora Asahi Remix'
+  base: 'my old M1 MacBook, which I\'m turning into a home server with Fedora Asahi Remix; it\'s called MFOB (Murph FOB), callsign Primus Station, hostname primus-station'
 };
 
 /* The teacher's brief, sent with every question to Claude (with the lesson and walkthrough added after it). */

@@ -1,12 +1,12 @@
-"""Generates www/content-ext.js: Base station, Jarvis and Wrist module content.
+"""Generates www/content-ext.js: MFOB (base station), Jarvis and Wrist module content.
 Edit the data here and rerun: python3 scripts/make-ext.py"""
 import json, pathlib
 
-branches = [{"id": "base", "name": "Base", "blurb": "The old M1 MacBook as an always-on Linux server: storage, photo backup, GoPro imports, Forge files, deck backups."}]
+branches = [{"id": "base", "name": "MFOB", "blurb": "Murph FOB: the old M1 MacBook as an always-on Linux server, callsign Primus Station. Storage, photo backup, GoPro imports, Forge files, deck backups."}]
 
 phases = [
- {"id": 7, "name": "Base station", "gate": None,
-  "blurb": "The M1 MacBook becomes the deck's home base: a 4 TB vault for photos, GoPro footage, Forge files and deck backups, reachable from anywhere. Open now; it doesn't need the Pi.",
+ {"id": 7, "name": "MFOB: Primus Station", "gate": None,
+  "blurb": "The M1 MacBook becomes MFOB (Murph FOB), callsign Primus Station, the control station of your net. The deck answers as Secundus Station. A 4 TB vault for photos, GoPro footage, Forge files and deck backups, reachable from anywhere. Open now; it doesn't need the Pi.",
   "obj": ["B1","B2","B3","B4","B5","B6","B7","B8","B9","B10","B11","B12"]},
  {"id": 8, "name": "Jarvis", "gate": {"node": "L7"},
   "blurb": "Hand control: a camera watches your hand and gestures drive the deck. Plus the deck's own speaker, and the GoPro under the deck's command.",
@@ -38,8 +38,8 @@ nodes = [
    "Asahi is the Linux built for Apple chips, and the M1 is its best-supported model. macOS stays on a small slice of the drive.",
    ["In macOS, open Terminal and run the command below. It asks before it changes anything, so read each prompt.",
     "Choose `r` to resize macOS and leave it about 70 GB; it needs room for its own updates. Then choose `f` to install into the freed space.",
-    "Pick Fedora Asahi Remix with KDE Plasma, size `max`, and name it Base.",
-    "It then has you shut down, wait 25 seconds, and hold the power button until \"Loading startup options\" appears. Choose Base. If it asks which volume to recover, pick your macOS volume and enter your Mac password, then follow the prompts.",
+    "Pick Fedora Asahi Remix with KDE Plasma, size `max`, and name it Primus.",
+    "It then has you shut down, wait 25 seconds, and hold the power button until \"Loading startup options\" appears. Choose Primus. If it asks which volume to recover, pick your macOS volume and enter your Mac password, then follow the prompts.",
     "Fedora's first-boot setup asks for time zone, username and password. From then on the Mac starts Linux. To reach macOS, shut down and hold the power button to pick it."],
    "Install Fedora Asahi Remix with KDE and log in to the desktop.",
    "The Mac boots to the KDE desktop.",
@@ -49,12 +49,12 @@ nodes = [
    "It's the same Linux you're learning on the deck, with a different package manager.",
    ["Fedora installs software with `dnf` where the Pi uses `apt`. `sudo dnf upgrade --refresh` updates everything; `sudo dnf install htop` installs a program.",
     "Everything from L2 and L3 (pwd, ls, cd, nano) works the same here.",
-    "Name the machine with `sudo hostnamectl set-hostname base`. It shows up as base.local on your network.",
+    "Name the machine with `sudo hostnamectl set-hostname primus-station`. It shows up as primus-station.local on your network. On the net it's Primus Station; MFOB is the whole setup.",
     "Fedora runs SELinux, an extra guard that labels files and decides what each service may touch. A few later steps add labels so services can use your folders."],
-   "Update the system, install htop, and rename the machine to base.",
-   "`hostname` prints base and htop runs.",
+   "Update the system, install htop, and rename the machine to primus-station.",
+   "`hostname` prints primus-station and htop runs.",
    terms=["dnf","selinux"],
-   cmd=[["sudo dnf upgrade --refresh","Update everything"],["sudo dnf install htop","Install a program"],["sudo hostnamectl set-hostname base","Rename the machine"]]),
+   cmd=[["sudo dnf upgrade --refresh","Update everything"],["sudo dnf install htop","Install a program"],["sudo hostnamectl set-hostname primus-station","Rename the machine"]]),
  N("B4","base",7,"Always on",45,15,["B3"],
    "A server that sleeps isn't a server. This keeps it running with the lid shut and the battery healthy.",
    ["In System Settings > Power Management, for AC power: never sleep, never turn the screen off, and do nothing when the lid closes.",
@@ -70,35 +70,35 @@ nodes = [
    ["Install it: `sudo dnf install cockpit`, then `sudo systemctl enable --now cockpit.socket`.",
     "Open the firewall for it: `sudo firewall-cmd --permanent --add-service=cockpit`, then `sudo firewall-cmd --reload`.",
     "Turn on SSH too: `sudo systemctl enable --now sshd`.",
-    "From your laptop open https://base.local:9090. The browser warns about the certificate the first time; that's expected on your own network. Log in with your Linux username."],
-   "Open Cockpit from your laptop and SSH into base.",
-   "Cockpit shows base's dashboard and `ssh you@base.local` logs in.",
+    "From your laptop open https://primus-station.local:9090. The browser warns about the certificate the first time; that's expected on your own network. Log in with your Linux username."],
+   "Open Cockpit from your laptop and SSH into Primus.",
+   "Cockpit shows Primus's dashboard and `ssh you@primus-station.local` logs in.",
    terms=["cockpit","systemd"]),
  N("B6","base",7,"The vault drive",60,20,["B4"],
    "The 4 TB drive is where everything lives. Set it up once, properly.",
    ["Plug it in and run `lsblk -f` to find it, probably /dev/sda.",
     "Formatting erases the drive. In KDE Partition Manager give it a new GPT table and one ext4 partition labelled vault.",
-    "Make a mount point with `sudo mkdir -p /srv/vault`, then add the first line below to /etc/fstab (`sudo nano /etc/fstab`) with the UUID from `lsblk -f`. `nofail` lets base boot even with the drive unplugged.",
+    "Make a mount point with `sudo mkdir -p /srv/vault`, then add the first line below to /etc/fstab (`sudo nano /etc/fstab`) with the UUID from `lsblk -f`. `nofail` lets Primus boot even with the drive unplugged.",
     "Mount it, make it yours, and lay out the folders with the remaining lines."],
    "Format, mount and lay out the vault, then reboot and check it comes back.",
    "After a reboot `df -h /srv/vault` shows about 3.6 TB.",
    terms=["mount","fstab"], needs=["vault-drive","usbc"],
    code="UUID=your-uuid-here  /srv/vault  ext4  defaults,nofail  0  2\n\nsudo mount -a\nsudo chown -R $USER: /srv/vault\nmkdir -p /srv/vault/{photos,gopro,phone-old,forge,deck}"),
  N("B7","base",7,"Reach it anywhere",30,15,["B5"],
-   "Tailscale makes base reachable from your phone anywhere, without opening your home network to the internet.",
-   ["On base run the install line below, then `sudo tailscale up` and log in with the link it prints.",
+   "Tailscale makes Primus reachable from your phone anywhere, without opening your home network to the internet.",
+   ["On Primus run the install line below, then `sudo tailscale up` and log in with the link it prints.",
     "Install the Tailscale app on your phone and laptop and sign in with the same account.",
-    "Base is then reachable as `base` from all of them, at home or away. It's free for personal use."],
-   "Turn your phone's Wi-Fi off and open Cockpit on base over cell data (https://base:9090).",
+    "Primus is then reachable as `primus-station` from all of them, at home or away. It's free for personal use."],
+   "Turn your phone's Wi-Fi off and open Cockpit on Primus over cell data (https://primus-station:9090).",
    "Cockpit loads on your phone over cellular.",
    terms=["tailscale"], code="curl -fsSL https://tailscale.com/install.sh | sh\nsudo tailscale up"),
  N("B8","base",7,"Photo backup",90,30,["B6","B7"],
-   "Immich is a private Google Photos running on base. Your phone backs itself up to your own drive.",
+   "Immich is a private Google Photos running on Primus. Your phone backs itself up to your own drive.",
    ["Install Docker from Docker's Fedora repository with the commands below, then log out and back in. If that repository doesn't support your Fedora version yet, Fedora's own moby-engine package is the fallback.",
     "Make a folder ~/immich and download Immich's docker-compose.yml and example.env (saved as .env) into it, from its install guide.",
     "In .env set `UPLOAD_LOCATION=/srv/vault/photos` and `DB_DATA_LOCATION=./postgres`, so the database stays on the Mac's fast internal drive.",
-    "`docker compose up -d` starts it. Open http://base:2283 and create your admin account.",
-    "On the phone install the Immich app, use http://base:2283 as the server (it works anywhere through Tailscale) and turn on backup.",
+    "`docker compose up -d` starts it. Open http://primus-station:2283 and create your admin account.",
+    "On the phone install the Immich app, use http://primus-station:2283 as the server (it works anywhere through Tailscale) and turn on backup.",
     "Immich saves a copy of its database into the photos folder every night, so backing up the vault covers it.",
     "If a container keeps restarting, `docker compose logs` shows why. The M1 uses bigger memory pages than most PCs and the odd program trips on that; searching the error with the word Asahi usually finds the fix.",
     "If memory runs tight, switch off Smart Search and face recognition in Immich's admin settings."],
@@ -123,7 +123,7 @@ nodes = [
    ["`sudo dnf install samba policycoreutils-python-utils`, then add the [forge] block below to the end of /etc/samba/smb.conf with your username.",
     "Give your user a Samba password: `sudo smbpasswd -a $USER`.",
     "Let SELinux and the firewall allow it with the remaining lines, then `sudo systemctl enable --now smb`.",
-    "On Windows open \\\\base\\forge, on a Mac smb://base/forge, on Android a file manager with SMB support."],
+    "On Windows open \\\\primus-station\\forge, on a Mac smb://primus-station/forge, on Android a file manager with SMB support."],
    "Move your Forge files onto the share and open them from another device.",
    "The forge folder opens from your laptop or phone.",
    terms=["samba"],
@@ -139,14 +139,14 @@ nodes = [
    needs=["vault-drive2"],
    code="mountpoint -q /srv/vault && mountpoint -q /srv/vault2 && rsync -a --delete /srv/vault/ /srv/vault2/\n\n0 3 * * * mountpoint -q /srv/vault && mountpoint -q /srv/vault2 && rsync -a --delete /srv/vault/ /srv/vault2/"),
  N("B12","base",7,"Deck backups",45,20,["B7","L6"],
-   "The deck sends its files to base every night, so a dead SD card costs nothing.",
-   ["Install Tailscale on the deck the same way as B7, so it can reach base from anywhere with internet.",
-    "On the deck make a key with `ssh-keygen` (press Enter at each question), then `ssh-copy-id you@base` so it logs in without a password.",
+   "Secundus sends its files to Primus every night, so a dead SD card costs nothing.",
+   ["Install Tailscale on the deck the same way as B7, so it can reach Primus from anywhere with internet.",
+    "On the deck make a key with `ssh-keygen` (press Enter at each question), then `ssh-copy-id you@primus-station` so it logs in without a password.",
     "Test the copy by hand with the first line below.",
     "Schedule it on the deck with `crontab -e` and the timing line (2 am daily)."],
-   "Set up the nightly deck backup and check the files land on base.",
+   "Set up the nightly deck backup and check the files land on Primus.",
    "~/deck appears in /srv/vault/deck after the scheduled run.",
-   code="rsync -a ~/deck/ you@base:/srv/vault/deck/\n\n0 2 * * * rsync -a ~/deck/ you@base:/srv/vault/deck/"),
+   code="rsync -a ~/deck/ you@primus-station:/srv/vault/deck/\n\n0 2 * * * rsync -a ~/deck/ you@primus-station:/srv/vault/deck/"),
 
  # ---------------- JARVIS ----------------
  N("L11","linux",8,"Deck camera",45,15,["L4"],
@@ -182,7 +182,7 @@ nodes = [
    ["GoPro publishes Open GoPro, an official way to control its cameras from code, and the HERO11 supports it.",
     "Its Python package, open-gopro, talks to the camera over Bluetooth and Wi-Fi.",
     "Start with its examples: connect, take a photo, start and stop video, list and download media.",
-    "Then write one script: record a ten-second clip and copy it to /srv/vault/gopro on base."],
+    "Then write one script: record a ten-second clip and copy it to /srv/vault/gopro on Primus."],
    "Record a clip from the deck and land it in the vault.",
    "A clip the deck started shows up in /srv/vault/gopro.",
    code="source ~/jarvis/bin/activate\npip install open-gopro",
@@ -277,7 +277,7 @@ parts = [
 
 terms = [
  ["asahi","Asahi Linux","The project that makes Linux run on Apple-chip Macs.","B2"],
- ["fedora","Fedora","The Linux your base station runs. Same commands as the Pi's, different package manager.","B2"],
+ ["fedora","Fedora","The Linux Primus (MFOB) runs. Same commands as the Pi's, different package manager.","B2"],
  ["dnf","dnf","Fedora's package manager; the equivalent of apt on the Pi.","B3"],
  ["selinux","SELinux","A security guard in Fedora that labels files and limits what each service can touch.","B3"],
  ["cockpit","Cockpit","A web dashboard for managing a Linux machine from any browser.","B5"],
@@ -296,9 +296,10 @@ terms = [
  ["i2c","I2C","A two-wire connection (SDA and SCL) that lets several small devices share the same pins.","E12"],
  ["ble","BLE","Bluetooth Low Energy: short-range, low-power wireless for small devices.","E14"],
  ["lipo","LiPo","Lithium-polymer pouch battery. Light and flat, and must never be punctured or crushed.","E15"],
+ ["callsign","Callsigns","MFOB (Murph FOB) is the whole home setup. Its stations take Latin ordinals: the MacBook server is Primus Station (hostname primus-station), the deck is Secundus Station (secundus-station), the next box Tertius Station. On air: \"Primus Station, this is Secundus Station.\"","B3"],
 ]
 
-commands = [["Base station", [
+commands = [["MFOB", [
  ["sudo dnf upgrade --refresh","Update everything on Fedora","B3"],
  ["sudo dnf install name","Install a program on Fedora","B3"],
  ["sudo systemctl enable --now name","Start a service and start it at every boot","B5"],
@@ -318,10 +319,10 @@ commands = [["Base station", [
 
 safety = [
  ["Wrist battery","The wrist's LiPo pouch must never be punctured, bent or crushed. Use a protected cell, charge it off your wrist and away from the forge, and retire it if it puffs up."],
- ["Base station battery","A laptop plugged in around the clock can swell its battery. Keep the 80% charge cap on, and check monthly for a bulging bottom case or lifted trackpad."],
+ ["MFOB battery","A laptop plugged in around the clock can swell its battery. Keep the 80% charge cap on, and check monthly for a bulging bottom case or lifted trackpad."],
 ]
 
-js = "/* Generated by scripts/make-ext.py: Base station, Jarvis, Wrist module. */\n(function () {\n"
+js = "/* Generated by scripts/make-ext.py: MFOB (base station), Jarvis, Wrist module. */\n(function () {\n"
 js += "BRANCHES.push(...%s);\n" % json.dumps(branches, ensure_ascii=False)
 js += "PHASES.push(...%s);\n" % json.dumps(phases, ensure_ascii=False)
 js += "NODES.push(...%s);\n" % json.dumps(nodes, ensure_ascii=False, indent=0)

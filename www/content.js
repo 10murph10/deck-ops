@@ -46,7 +46,7 @@ const NODES = [
     why: 'The terminal is a text door into the whole machine. Everything after this uses it.',
     learn: [
       'Linux keeps every file in one tree starting at `/`. Your own files live in your home folder, written `~`.',
-      'The prompt `marshall@deck:~ $` reads: user, computer name, current folder.',
+      'The prompt `marshall@secundus-station:~ $` reads: user, computer name, current folder.',
       '`pwd` prints where you are. `ls` lists what\'s here. `cd name` moves in, `cd ..` moves up one, `cd ~` goes home.',
       'Tab finishes a name for you. The up arrow brings back earlier commands.',
       'Capitals matter: `Deck` and `deck` are different folders.'
@@ -99,14 +99,14 @@ const NODES = [
   { id: 'L6', b: 'linux', phase: 2, t: 'Remote control', mins: 30, xp: 10, req: ['L4'],
     why: 'SSH lets you drive the deck\'s terminal from your laptop or phone. Very handy once it\'s sealed in a case.',
     learn: [
-      'Turn it on in Menu > Preferences > Raspberry Pi Configuration > Interfaces > SSH. Set the hostname to deck on the System tab while you\'re there.',
-      'From a laptop on the same Wi-Fi, run `ssh yourname@deck.local`. Windows 10 and 11 and macOS have ssh built in.',
+      'Turn it on in Menu > Preferences > Raspberry Pi Configuration > Interfaces > SSH. Set the hostname to secundus-station on the System tab while you\'re there. The deck is Secundus Station on your net; the MacBook server is Primus Station.',
+      'From a laptop on the same Wi-Fi, run `ssh yourname@secundus-station.local`. Windows 10 and 11 and macOS have ssh built in.',
       'If the .local name doesn\'t resolve, `hostname -I` on the Pi shows its IP address to use instead.',
       'Type `exit` to leave.'
     ],
-    cmd: [['ssh marshall@deck.local', 'Log in from another computer (use your username)'], ['hostname -I', 'Show the Pi\'s IP address'], ['exit', 'Close the session']],
-    mission: 'Rename the Pi to deck, enable SSH, and log in from your laptop.',
-    done: 'Your laptop\'s terminal shows yourname@deck.',
+    cmd: [['ssh marshall@secundus-station.local', 'Log in from another computer (use your username)'], ['hostname -I', 'Show the Pi\'s IP address'], ['exit', 'Close the session']],
+    mission: 'Rename the Pi to secundus-station, enable SSH, and log in from your laptop.',
+    done: 'Your laptop\'s terminal shows yourname@secundus-station.',
     terms: ['ssh', 'hostname'] },
 
   { id: 'L7', b: 'linux', phase: 5, t: 'Scripts and Python', mins: 45, xp: 15, req: ['L5'],
@@ -526,7 +526,7 @@ const TERMS = [
   ['permissions', 'Permissions', 'Read, write and execute rights on a file, set for the owner, group and everyone.', 'L5'],
   ['script', 'Script', 'A file of commands that runs top to bottom. Bash or Python, usually.', 'L5'],
   ['ssh', 'SSH', 'Secure shell. Drive another computer\'s terminal over the network.', 'L6'],
-  ['hostname', 'Hostname', 'A computer\'s name on the network. Yours will be deck, reachable as deck.local.', 'L6'],
+  ['hostname', 'Hostname', 'A computer\'s name on the network. The deck is secundus-station, reachable as secundus-station.local; the server is primus-station.', 'L6'],
   ['python', 'Python', 'A readable programming language, already on the Pi. Good for logging and automation.', 'L7'],
   ['imager', 'Raspberry Pi Imager', 'Free tool that writes a fresh operating system onto a microSD card.', 'L8'],
   ['arduino', 'Arduino', 'A family of small programmable boards for gadgets. Runs one program, no operating system.', 'E1'],
@@ -619,7 +619,7 @@ const COMMANDS = [
     ['rtl_test', 'Check the SDR is detected (Ctrl+C stops)', 'R2']
   ]],
   ['Remote and scripts', [
-    ['ssh you@deck.local', 'Log in to the deck from another computer', 'L6'],
+    ['ssh you@secundus-station.local', 'Log in to the deck from another computer', 'L6'],
     ['hostname -I', 'Show the deck\'s IP address', 'L6'],
     ['exit', 'Leave an SSH session', 'L6'],
     ['chmod +x file', 'Make a script runnable', 'L5'],

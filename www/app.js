@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.6.1';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -30,8 +30,11 @@ const TERM = {}; TERMS.forEach(t => { TERM[t.id] = t; });
 const BR = {}; BRANCHES.forEach((b, i) => { BR[b.id] = Object.assign({ ord: i }, b); });
 const VIEWS = [['ops', 'Ops'], ['route', 'Route'], ['skills', 'Skills'], ['parts', 'Parts'], ['log', 'Log'], ['codex', 'Codex']];
 const STATUSES = ['wanted', 'ordered', 'arrived', 'installed'];
-const TAGS = ['Linux', 'Electronics', 'CAD', 'Radio', 'Base', 'Signal', 'Case', 'Other'];
-const BR_TAG = { linux: 'Linux', elec: 'Electronics', cad: 'CAD', radio: 'Radio', base: 'Base' };
+const TAGS = ['Linux', 'Electronics', 'CAD', 'Radio', 'MFOB', 'Signal', 'Case', 'Other'];
+const BR_TAG = { linux: 'Linux', elec: 'Electronics', cad: 'CAD', radio: 'Radio', base: 'MFOB' };
+/* Entries written before 1.6.1 carry the old Base tag */
+const tagName = t => t === 'Base' ? 'MFOB' : t;
+const tagsOf = e => (e.tags || []).map(tagName);
 const THEMES = [['phosphor', 'Phosphor', '#03140c'], ['amber', 'Amber', '#140d03'], ['blueprint', 'Blueprint', '#0d2b4e']];
 
 /* ---------- state ----------
@@ -549,7 +552,7 @@ function routeSVG(kind, sel) {
 function viewRoute() {
   const kind = window.innerWidth >= 760 ? 'wide' : 'tall'; ui.layout = kind;
   const sel = ui.phase || currentPhase().id, p = phaseById(sel), st = phaseState(p), b = budget(p.id);
-  let h = '<h1 class="vt">The route</h1><p class="lead">' + PHASES.length + ' phases. Three are open from the start: the bench deck, the case and the base station. The rest open when you finish the lesson on their wire. Select a phase for its work and parts.</p>';
+  let h = '<h1 class="vt">The route</h1><p class="lead">' + PHASES.length + ' phases. Three are open from the start: the bench deck, the case and MFOB, the base station. The rest open when you finish the lesson on their wire. Select a phase for its work and parts.</p>';
   h += '<div class="route-wrap route">' + routeSVG(kind, sel) + '</div>';
   h += '<section class="win"><h2 class="wt">Phase ' + p.id + '  ' + esc(p.name) + ' <small>' + st + '</small></h2><p class="lead">' + esc(p.blurb) + '</p><p class="' + (st === 'locked' ? 'warn' : 'muted') + '" style="margin:0 0 10px">' + esc(gateText(p)) + '</p>';
   h += '<h3 class="sub">Objectives</h3>' + p.obj.map(id => nodeRow(NODE[id])).join('');
@@ -596,7 +599,7 @@ function partRow(p) {
   return h + '</div></li>';
 }
 function viewLog() {
-  const list = liveLog().sort(byDate).filter(e => ui.logTag === 'all' || (e.tags || []).includes(ui.logTag));
+  const list = liveLog().sort(byDate).filter(e => ui.logTag === 'all' || tagsOf(e).includes(ui.logTag));
   let h = '<h1 class="vt">Field log</h1><div class="row" style="margin-bottom:14px"><button class="btn primary" data-newlog>New entry</button></div>';
   h += '<div style="margin-bottom:10px">' + ['all'].concat(TAGS).map(t => '<button class="chip" data-logtag="' + t + '" aria-pressed="' + (ui.logTag === t) + '">' + (t === 'all' ? 'All' : t) + '</button>').join('') + '</div>';
   if (ui.draft) h += logForm();
@@ -604,7 +607,7 @@ function viewLog() {
   return h + '<ol class="plain">' + list.map(entryRow).join('') + '</ol>';
 }
 function entryRow(e) {
-  let h = '<li class="entry"><div class="e-date vt">' + esc(fmtShort(e.date)) + '</div><div><h3>' + esc(e.t || 'Untitled') + '</h3><div>' + (e.tags || []).map(t => '<span class="tag">' + esc(t) + '</span>').join('') +
+  let h = '<li class="entry"><div class="e-date vt">' + esc(fmtShort(e.date)) + '</div><div><h3>' + esc(e.t || 'Untitled') + '</h3><div>' + tagsOf(e).map(t => '<span class="tag">' + esc(t) + '</span>').join('') +
     (e.node && NODE[e.node] ? '<button class="chip" data-open="' + esc(e.node) + '">' + esc(e.node) + ' ' + esc(NODE[e.node].t) + '</button>' : '') + '</div>';
   if (e.freq) h += '<div class="e-sig">' + esc(e.freq) + ' MHz ' + esc(e.mode || '') + '</div>';
   if (e.body) h += '<p class="e-body">' + esc(e.body) + '</p>';
@@ -1395,7 +1398,7 @@ document.addEventListener('click', async ev => {
   }
   if (a('data-editlog') != null) {
     const e = LOG.find(x => x.id === a('data-editlog')); if (!e) return;
-    ui.editing = e.id; ui.draft = { date: e.date || todayISO(), t: e.t || '', body: e.body || '', tags: (e.tags || []).slice(), node: e.node || '', freq: e.freq || '', mode: e.mode || 'FM', photo: e.photo || null };
+    ui.editing = e.id; ui.draft = { date: e.date || todayISO(), t: e.t || '', body: e.body || '', tags: tagsOf(e), node: e.node || '', freq: e.freq || '', mode: e.mode || 'FM', photo: e.photo || null };
     render(); window.scrollTo(0, 0); return;
   }
   if (a('data-askdel') != null) { ui.confirm = a('data-askdel'); return render(); }
