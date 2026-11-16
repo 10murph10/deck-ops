@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.6.0';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -52,7 +52,7 @@ function normalize(d) {
 const readJSON = (k, d) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : d; } catch (e) { return d; } };
 let S = normalize(readJSON(LS, null) || readJSON('deck-ops-v1', null));
 let LOG = (readJSON(LSLOG, null) || readJSON('deck-ops-log-v1', []) || []).filter(e => e && e.id);
-const DEV = Object.assign({ theme: 'phosphor', sound: true, haptics: true, speak: false, akey: '', tmodel: 'claude-sonnet-5-5', remNight: true, remParts: true, remUpd: true,
+const DEV = Object.assign({ theme: 'phosphor', sound: true, haptics: true, speak: false, vrate: 0.67, vpitch: 0.95, vvoice: '', vfx: true, akey: '', tmodel: 'claude-sonnet-5-5', remNight: true, remParts: true, remUpd: true,
   owner: '10murph10', repo: 'deck-ops-data', token: '', lastSync: 0, syncErr: '', bootSeen: false, introSeen: false }, readJSON(LSDEV, {}));
 
 const ui = { view: 'ops', branch: 'linux', phase: null, lesson: null, codexTab: 'terms', q: '', logTag: 'all',
@@ -895,25 +895,79 @@ const VOICE = (() => {
     if (!(await ready())) return null;
     hush(); off(); buffer = (seed || '').trim(); mode = 'dictate'; lastAct = Date.now(); watch(); earsOn(); return '';
   }
-  async function say(text) {
+  /* voices: the phone's own engine (Google TTS on Android); the picker in Settings stores the voice's id in DEV.vvoice */
+  let voicesCache = null;
+  async function voices() {
+    if (voicesCache) return voicesCache;
+    let v = [];
+    try {
+      if (TTS()) { const r = await TTS().getSupportedVoices(); v = (r && r.voices || []).map((x, i) => ({ i, id: x.voiceURI || x.name, name: x.name || x.voiceURI || ('Voice ' + (i + 1)), lang: x.lang || '', local: x.localService !== false })); }
+      else if ('speechSynthesis' in window) v = speechSynthesis.getVoices().map((x, i) => ({ i, id: x.voiceURI || x.name, name: x.name, lang: x.lang || '', local: x.localService, obj: x }));
+    } catch (e) {}
+    const en = v.filter(x => /^en/i.test(x.lang));
+    voicesCache = (en.length ? en : v).sort((a, b) => (/^en[-_]us/i.test(b.lang) - /^en[-_]us/i.test(a.lang)) || (/^en[-_](ca|gb)/i.test(b.lang) - /^en[-_](ca|gb)/i.test(a.lang)));
+    return voicesCache;
+  }
+  const pick = list => list.find(x => x.id === DEV.vvoice) || null;
+  /* cyber overlay: a radio squelch as the tutor keys up, a faint carrier under the voice, a click as it drops. Web Audio, mixed by the phone with the voice. */
+  const FX = (() => {
+    let ctx = null, bed = null;
+    const ac = () => { if (!ctx) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; try { ctx = new A(); } catch (e) { return null; } } if (ctx.state === 'suspended') ctx.resume().catch(() => {}); return ctx; };
+    function sweep(f0, f1, d, vol, type) {
+      const c = ac(); if (!c) return; const o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
+      o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + d + 0.03);
+    }
+    function burst(d, vol, hp) {
+      const c = ac(); if (!c) return; const len = Math.floor(c.sampleRate * d), b = c.createBuffer(1, len, c.sampleRate), x = b.getChannelData(0);
+      for (let i = 0; i < len; i++) x[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); s.buffer = b; f.type = 'bandpass'; f.frequency.value = hp; f.Q.value = 0.7; g.gain.value = vol;
+      s.connect(f); f.connect(g); g.connect(c.destination); s.start();
+    }
+    function up() {
+      if (!DEV.vfx) return; const c = ac(); if (!c) return;
+      burst(0.07, 0.12, 2400); sweep(1900, 640, 0.11, 0.05); sweep(640, 1280, 0.06, 0.03);
+      down(true);
+      // carrier: a low hum plus hiss, quiet enough to sit under the words
+      const t = c.currentTime, g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.018, t + 0.25);
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 55; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 140;
+      const len = c.sampleRate * 2, b = c.createBuffer(1, len, c.sampleRate), x = b.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1;
+      const n = c.createBufferSource(); n.buffer = b; n.loop = true; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 0.5; const ng = c.createGain(); ng.gain.value = 0.35;
+      o.connect(lp); lp.connect(g); n.connect(bp); bp.connect(ng); ng.connect(g); g.connect(c.destination); o.start(); n.start();
+      bed = { g, o, n };
+    }
+    function down(quiet) {
+      if (bed) { const c = ac(), b = bed; bed = null; if (c) { const t = c.currentTime; b.g.gain.cancelScheduledValues(t); b.g.gain.setValueAtTime(b.g.gain.value || 0.0001, t); b.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); b.o.stop(t + 0.15); b.n.stop(t + 0.15); } }
+      if (!quiet && DEV.vfx) { burst(0.03, 0.1, 1800); sweep(900, 300, 0.07, 0.03, 'square'); }
+    }
+    return { up, down };
+  })();
+  async function say(text, opts) {
     text = speakable(text); if (!text || !canSpeak()) return;
     const my = ++gen; speaking = true; earsOff();
+    const rate = Number((opts && opts.rate) || DEV.vrate) || 0.67, pitch = Number((opts && opts.pitch) || DEV.vpitch) || 0.95;
     try {
-      if (TTS()) await TTS().speak({ text, lang: 'en-US', rate: 1.0, pitch: 1.0, volume: 1.0, queueStrategy: 0 });
+      const list = await voices(), v = pick(list);
+      FX.up(); await new Promise(r => setTimeout(r, DEV.vfx ? 170 : 0));
+      if (my !== gen) { FX.down(true); return; }
+      if (TTS()) { const o = { text, lang: (v && v.lang) || 'en-US', rate, pitch, volume: 1.0, queueStrategy: 0 }; if (v) o.voice = v.i; try { await TTS().speak(o); } catch (e) { if (v && my === gen) { delete o.voice; await TTS().speak(o); } } }
       else await new Promise(res => {
-        const done = () => { clearTimeout(tm); res(); }, tm = setTimeout(done, Math.max(4000, text.length * 90));
-        try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.onend = u.onerror = done; speechSynthesis.speak(u); } catch (e) { done(); }
+        const done = () => { clearTimeout(tm); res(); }, tm = setTimeout(done, Math.max(4000, text.length * 90 / rate));
+        try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = (v && v.lang) || 'en-US'; u.rate = rate; u.pitch = pitch; if (v && v.obj) u.voice = v.obj; u.onend = u.onerror = done; speechSynthesis.speak(u); } catch (e) { done(); }
       });
     } catch (e) {}
+    FX.down(my !== gen);
     if (my === gen) { speaking = false; if (mode && !held) later(300); }
   }
+  const preview = () => say('Deck Ops tutor online. Step 1 of 6: wire the LED. Put the long leg in row 3, and the resistor from row 3 to ground.');
   function hush() {
-    gen++; speaking = false;
+    gen++; speaking = false; FX.down(true);
     try { if (TTS()) TTS().stop().catch(() => {}); else if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
     if (mode && !held) later(300);
   }
   function hold(v) { held = Math.max(0, held + (v ? 1 : -1)); if (v) earsOff(); else if (mode && !held) later(300); }
-  const api = { say, hush, talk, dictate, hold, canSpeak, canListen, stop: off, mode: () => mode, listening: () => mode === 'talk', dictating: () => mode === 'dictate', onText: null, onSend: null, onState: null };
+  const api = { say, hush, talk, dictate, hold, canSpeak, canListen, voices, preview, resetVoices: () => { voicesCache = null; }, stop: off, mode: () => mode, listening: () => mode === 'talk', dictating: () => mode === 'dictate', onText: null, onSend: null, onState: null };
   return api;
 })();
 
@@ -1118,7 +1172,18 @@ function sysHTML() {
   const sc = S.sched;
   let h = '<div class="sh-head"><span></span><div><div class="sh-br">Deck Ops ' + APP_VERSION + (NATIVE ? '   android app' : '   web app') + '</div><h2 id="sh-title" class="vt">Settings</h2></div><button class="x" data-close aria-label="Close settings">×</button></div><div class="sh-body">';
   h += '<div class="set"><h3>Look</h3><div>' + THEMES.map(([k, l]) => '<button class="chip" data-theme="' + k + '" aria-pressed="' + (DEV.theme === k) + '">' + l + '</button>').join('') + '</div></div>';
-  h += '<div class="set"><h3>Sound and feel</h3>' + tog('sound', 'Terminal sounds', 'Key clicks, boot beep, completion chirp', DEV.sound) + tog('haptics', 'Vibration', 'A tap on keys, a buzz on completion', DEV.haptics) + (VOICE.canSpeak() ? tog('speak', 'Tutor reads aloud', 'Reads each tutor step in your phone\'s voice', DEV.speak) : '') + '</div>';
+  h += '<div class="set"><h3>Sound and feel</h3>' + tog('sound', 'Terminal sounds', 'Key clicks, boot beep, completion chirp', DEV.sound) + tog('haptics', 'Vibration', 'A tap on keys, a buzz on completion', DEV.haptics) + (VOICE.canSpeak() ? tog('speak', 'Tutor reads aloud', 'Reads each tutor step out loud', DEV.speak) : '') + '</div>';
+  if (VOICE.canSpeak()) {
+    const vs = ui.voices || [], cur = vs.find(x => x.id === DEV.vvoice);
+    const nice = (x, i) => { const m = /x-([a-z]{3})-(local|network)/i.exec(x.id || x.name) || []; return (x.name && !/^en[-_]/i.test(x.name) && !/^[a-z]{2}-[a-z]{2}-x-/i.test(x.name) ? x.name : 'Voice ' + (i + 1) + (m[1] ? ' ' + m[1].toUpperCase() : '')) + (m[2] === 'network' ? ' (online)' : '') + (x.lang && !/^en[-_]us/i.test(x.lang) ? ' · ' + x.lang : ''); };
+    h += '<div class="set"><h3>Tutor voice</h3>' +
+      '<label class="f">Voice<select data-vvoice><option value=""' + (!cur ? ' selected' : '') + '>Phone default</option>' + vs.map((x, i) => '<option value="' + esc(x.id) + '"' + (x.id === DEV.vvoice ? ' selected' : '') + '>' + esc(nice(x, i)) + '</option>').join('') + '</select></label>' +
+      (vs.length ? '' : '<p class="muted">' + (ui.voicesLoaded ? 'No extra voices on this phone. Google Text-to-speech in Android settings can download more; natural ones say Online.' : 'Loading voices…') + '</p>') +
+      '<div class="row"><label class="f">Speed<select data-vrate>' + [[0.55, 'Slower'], [0.67, 'A third slower'], [0.8, 'A little slower'], [1, 'Normal']].map(([r, l]) => '<option value="' + r + '"' + (Math.abs(DEV.vrate - r) < 0.01 ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label>' +
+      '<label class="f">Pitch<select data-vpitch>' + [[0.85, 'Deeper'], [0.95, 'Slightly deep'], [1, 'Normal'], [1.1, 'Higher']].map(([r, l]) => '<option value="' + r + '"' + (Math.abs(DEV.vpitch - r) < 0.01 ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label></div>' +
+      tog('vfx', 'Cyber overlay', 'Radio key-up, a faint carrier under the voice, a click when it drops', DEV.vfx) +
+      '<div class="row"><button class="btn ghost" data-vprev>Preview</button></div></div>';
+  }
   h += '<div class="set"><h3>Tutor</h3><p class="kv">Ask the tutor: <b>' + (DEV.akey ? 'key saved on this phone' : 'not set up') + '</b></p>' +
     '<form class="form" id="keyForm"><label class="f">Claude API key<input name="akey" type="password" value="" placeholder="' + (DEV.akey ? '•••• saved (paste to replace)' : 'sk-ant-…') + '" autocapitalize="off" autocomplete="off" spellcheck="false"></label>' +
     '<label class="f">Tutor model<select name="tmodel"><option value="claude-sonnet-5-5"' + (DEV.tmodel !== 'claude-haiku-5-5' ? ' selected' : '') + '>Sonnet 5.5: the best teacher</option><option value="claude-haiku-5-5"' + (DEV.tmodel === 'claude-haiku-5-5' ? ' selected' : '') + '>Haiku 5.5: cheaper and quicker</option></select></label>' +
@@ -1151,6 +1216,7 @@ function openSheet(kind, id) {
   if (!ui.lesson) ui.lastFocus = document.activeElement;
   ui.lesson = kind === 'lesson' ? id : '__' + kind; ui.sheetArg = id;
   const sh = $('#sheet'); sh.hidden = false; sh.innerHTML = sheetHTML(); sh.scrollTop = 0; hydratePhotos(sh);
+  if (kind === 'sys' && VOICE.canSpeak()) { VOICE.resetVoices(); VOICE.voices().then(v => { ui.voices = v; ui.voicesLoaded = true; if (ui.lesson === '__sys') sheetRefresh(); }); if (!NATIVE && 'speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => { VOICE.resetVoices(); VOICE.voices().then(v => { ui.voices = v; if (ui.lesson === '__sys') sheetRefresh(); }); }; }
   requestAnimationFrame(() => { sh.classList.add('on'); $('#scrim').classList.add('on'); const x = sh.querySelector('[data-close]'); if (x) x.focus({ preventScroll: true }); });
   const want = kind === 'lesson' ? 'node-' + id.toLowerCase() : kind === 'tutor' ? 'tutor-' + id.toLowerCase() : kind === 'sys' ? 'sys' : null;
   if (want && location.hash.slice(1) !== want) { history.pushState(null, '', '#' + want); ui.pushed = true; }
@@ -1350,6 +1416,7 @@ document.addEventListener('click', async ev => {
     return commit();
   }
   if (a('data-intro') != null) { DEV.introSeen = true; saveDev(); return render(); }
+  if (a('data-vprev') != null) { VOICE.hush(); return VOICE.preview(); }
   if (a('data-asknotif') != null) return REM.ask();
   if (a('data-testnotif') != null) return REM.test();
   if (a('data-syncnow') != null) return syncNow(true);
@@ -1375,6 +1442,9 @@ document.addEventListener('input', ev => {
 });
 document.addEventListener('change', ev => {
   const el = ev.target;
+  if (el.hasAttribute('data-vvoice')) { DEV.vvoice = el.value; saveDev(); VOICE.hush(); return VOICE.preview(); }
+  if (el.hasAttribute('data-vrate')) { DEV.vrate = Number(el.value) || 0.67; saveDev(); VOICE.hush(); return VOICE.preview(); }
+  if (el.hasAttribute('data-vpitch')) { DEV.vpitch = Number(el.value) || 0.95; saveDev(); VOICE.hush(); return VOICE.preview(); }
   if (el.hasAttribute('data-paid')) {
     const id = el.getAttribute('data-paid'), v = el.value === '' ? null : Math.max(0, Number(el.value));
     if (S.custom[id]) put('custom', id, Object.assign({}, S.custom[id], { paid: v })); else put('parts', id, Object.assign({}, S.parts[id], { paid: v }));
