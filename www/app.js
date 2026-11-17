@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.6.2';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -62,8 +62,10 @@ const ui = { view: 'ops', branch: 'linux', phase: null, lesson: null, codexTab: 
   draft: null, editing: null, confirm: null, uploading: false, flashTerm: null, lastFocus: null, layout: null,
   sync: 'idle', update: null, notif: 'unknown', importMsg: '' };
 
-function saveLocal() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} }
-function saveLog() { try { localStorage.setItem(LSLOG, JSON.stringify(LOG)); } catch (e) {} }
+let fullWarned = false;
+const storeFull = () => { if (!fullWarned) { fullWarned = true; setTimeout(() => toast('Phone storage for Deck Ops is full. Clear old tutor chats, then sync.'), 0); } };
+function saveLocal() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { storeFull(); } }
+function saveLog() { try { localStorage.setItem(LSLOG, JSON.stringify(LOG)); } catch (e) { storeFull(); } }
 function saveDev() { try { localStorage.setItem(LSDEV, JSON.stringify(DEV)); localStorage.setItem('deckops.theme', DEV.theme); } catch (e) {} }
 
 function put(sec, key, val) {
@@ -978,13 +980,39 @@ const VOICE = (() => {
 const TEACH = (() => {
   const K = 'deckops.chat.';
   let busy = false;
+  /* Photos sent to the tutor live in IndexedDB (key c…, marked synced so they never upload to GitHub).
+     localStorage only holds the chat text and the photo's key. memImg keeps this session's photos so a send never depends on storage. */
+  const memImg = new Map();
   const load = id => { try { return JSON.parse(localStorage.getItem(K + id) || '[]').filter(m => !(m.r === 'a' && /^\(No reply/.test(m.t || ''))); } catch (e) { return []; } };
   function save(id, list) {
-    list = list.slice(-40);
-    let n = 0; for (let i = list.length - 1; i >= 0; i--) if (list[i].img && ++n > 2) { delete list[i].img; list[i].had = true; }
-    try { localStorage.setItem(K + id, JSON.stringify(list)); }
-    catch (e) { list.forEach(m => { if (m.img) { delete m.img; m.had = true; } }); try { localStorage.setItem(K + id, JSON.stringify(list)); } catch (e2) {} }
+    const keep = list.slice(-40);
+    list.slice(0, -40).forEach(m => { if (m.pid) { memImg.delete(m.pid); IDB.del(m.pid).catch(() => {}); } });
+    const out = keep.map(m => { const c = Object.assign({}, m); delete c.img; return c; });
+    try { localStorage.setItem(K + id, JSON.stringify(out)); } catch (e) { storeFull(); }
   }
+  const dataURLtoBlob = u => b64ToBlob(u.split(',')[1], 'image/jpeg');
+  async function blobToB64(b) { return bytesToB64(new Uint8Array(await b.arrayBuffer())); }
+  async function putImg(dataURL) {
+    const pid = 'c' + uid(); memImg.set(pid, dataURL);
+    try { await IDB.put(pid, { blob: dataURLtoBlob(dataURL), synced: true, chat: true }); photoURL.set(pid, dataURL); } catch (e) {}
+    return pid;
+  }
+  async function imgB64(pid) {
+    if (memImg.has(pid)) return memImg.get(pid).split(',')[1];
+    try { const r = await IDB.get(pid); if (r && r.blob) return await blobToB64(r.blob); } catch (e) {}
+    return '';
+  }
+  // one-time move: older builds kept chat photos inside localStorage and filled it up
+  (async () => {
+    try {
+      const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(K) === 0) ks.push(k); }
+      for (const k of ks) {
+        const list = JSON.parse(localStorage.getItem(k) || '[]'); let moved = false;
+        for (const m of list) if (m.img) { try { m.pid = 'c' + uid(); await IDB.put(m.pid, { blob: dataURLtoBlob(m.img), synced: true, chat: true }); } catch (e) { delete m.pid; m.had = true; } delete m.img; moved = true; }
+        if (moved) localStorage.setItem(k, JSON.stringify(list));
+      }
+    } catch (e) {}
+  })();
   function lessonBrief(id) {
     const n = NODE[id], T = tutorFor(id), ph = PHASES.find(x => x.id === n.phase);
     const L = ['Lesson ' + n.id + ': ' + n.t + ' (' + BR[n.b].name + ' track, phase ' + n.phase + (ph ? ' ' + ph.name : '') + ')', 'Why it matters: ' + plainText(n.why), 'Key points:'];
@@ -1013,14 +1041,15 @@ const TEACH = (() => {
       { type: 'text', text: 'Right now he is on step ' + (k + 1) + ' of ' + T.steps.length + (s && s.t ? ' ("' + s.t + '")' : '') + ' of lesson ' + id + '. Lessons he has completed: ' + (done.join(', ') || 'none yet') + '.' }
     ];
   }
-  function messages(list) {
-    const msgs = list.filter(m => m.r === 'u' || m.r === 'a').slice(-20), withImg = new Set(), out = [];
-    let left = 2; for (let i = msgs.length - 1; i >= 0 && left; i--) if (msgs[i].r === 'u' && msgs[i].img) { withImg.add(i); left--; }
+  async function messages(list) {
+    const msgs = list.filter(m => m.r === 'u' || m.r === 'a').slice(-20), imgs = new Map(), out = [];
+    let left = 2;
+    for (let i = msgs.length - 1; i >= 0 && left; i--) if (msgs[i].r === 'u' && msgs[i].pid) { const b = await imgB64(msgs[i].pid); if (b) { imgs.set(i, b); left--; } }
     msgs.forEach((m, i) => {
       const role = m.r === 'u' ? 'user' : 'assistant', content = [];
       if (role === 'user') {
-        if (withImg.has(i)) content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: m.img.split(',')[1] } });
-        else if (m.img || m.had) content.push({ type: 'text', text: '[I sent a photo of my build here earlier.]' });
+        if (imgs.has(i)) content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imgs.get(i) } });
+        else if (m.pid || m.had) content.push({ type: 'text', text: '[I sent a photo of my build here earlier.]' });
       }
       content.push({ type: 'text', text: m.t || '...' });
       const last = out[out.length - 1];
@@ -1051,12 +1080,13 @@ const TEACH = (() => {
   const params = () => ({ model: DEV.tmodel || 'claude-sonnet-5-5', max_tokens: 8000, output_config: { effort: 'low' } });
   async function ask(id, k, text, img, viaVoice) {
     if (busy) { toast('The tutor is still answering.'); return; }
-    const list = load(id);
-    list.push(Object.assign({ r: 'u', t: text, k, at: Date.now() }, img ? { img } : {}));
-    save(id, list);
-    busy = true; VOICE.hold(true); sheetRefresh(true);
+    busy = true;
+    const list = load(id), msg = { r: 'u', t: text, k, at: Date.now() };
+    if (img) msg.pid = await putImg(img);
+    list.push(msg); save(id, list);
+    VOICE.hold(true); sheetRefresh(true);
     let reply = '', err = '';
-    try { reply = await call(Object.assign(params(), { system: system(id, k), messages: messages(load(id)) })); }
+    try { reply = await call(Object.assign(params(), { system: system(id, k), messages: await messages(list) })); }
     catch (e) { err = e.message || String(e); }
     busy = false;
     const l2 = load(id); l2.push(reply ? { r: 'a', t: reply, at: Date.now() } : { r: 'e', t: err, at: Date.now() }); save(id, l2);
@@ -1068,7 +1098,7 @@ const TEACH = (() => {
     try { await call(Object.assign(params(), { messages: [{ role: 'user', content: 'Reply with the single word: ready' }] })); toast('The tutor key works'); }
     catch (e) { toast(e.message || 'Key test failed'); }
   }
-  return { load, ask, test, busy: () => busy, clear: id => { try { localStorage.removeItem(K + id); } catch (e) {} } };
+  return { load, ask, test, busy: () => busy, clear: id => { load(id).forEach(m => { if (m.pid) { memImg.delete(m.pid); IDB.del(m.pid).catch(() => {}); } }); try { localStorage.removeItem(K + id); } catch (e) {} } };
 })();
 const forSpeech = t => String(t).replace(/```breadboard[\s\S]*?```/g, ' The diagram is on screen. ').replace(/\[\[fig:[\w-]+\]\]/g, ' The diagram is on screen. ').replace(/```[\s\S]*?```/g, ' The code is on screen. ').replace(/\*\*/g, '').replace(/^\s*[-*•]\s+/gm, '').replace(/#+\s/g, '');
 function richText(t) {
@@ -1103,7 +1133,7 @@ function keyCardHTML() {
     '<form id="keyForm" class="form"><label class="f">Claude API key<input name="akey" type="password" placeholder="sk-ant-…" autocapitalize="off" autocomplete="off" spellcheck="false"></label><div class="row"><button class="btn primary">Save key</button></div></form></div>';
 }
 function bubbleHTML(m, i) {
-  if (m.r === 'u') return '<div class="bub u">' + (m.img ? '<img src="' + m.img + '" alt="Photo you sent">' : m.had ? '<p class="muted">[photo]</p>' : '') + '<p>' + fmt(m.t).replace(/\n/g, '<br>') + '</p></div>';
+  if (m.r === 'u') return '<div class="bub u">' + (m.pid ? '<img data-pid="' + esc(m.pid) + '" alt="Photo you sent">' : m.had ? '<p class="muted">[photo]</p>' : '') + '<p>' + fmt(m.t).replace(/\n/g, '<br>') + '</p></div>';
   if (m.r === 'e') return '<div class="bub e" role="alert"><p>' + esc(m.t) + '</p></div>';
   return '<div class="bub a">' + richText(m.t) + (VOICE.canSpeak() ? '<button class="linkbtn" data-saymsg="' + i + '">Read aloud</button>' : '') + '</div>';
 }
@@ -1143,7 +1173,7 @@ VOICE.onState = st => {
 function sheetRefresh(toBottom) {
   if (!ui.lesson || ui.lesson === '__photo') return;
   const sh = $('#sheet'), ae = document.activeElement, keep = ae && ae.id === 'askIn', pos = keep ? ae.selectionStart : null, st = sh.scrollTop;
-  sh.innerHTML = sheetHTML();
+  sh.innerHTML = sheetHTML(); hydratePhotos(sh);
   sh.scrollTop = toBottom && ui.tut && ui.tut.mode === 'ask' ? sh.scrollHeight : st;
   if (keep) { const t = sh.querySelector('#askIn'); if (t) { t.focus({ preventScroll: true }); try { t.setSelectionRange(pos, pos); } catch (e) {} } }
 }
