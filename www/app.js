@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.6.2';
+const APP_VERSION = '1.7.0';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -498,8 +498,8 @@ const byDate = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.create
 
 /* route diagram */
 const ROUTE = {
-  wide: { W: 860, H: 348, bw: 196, bh: 82, pos: { 1: [96, 24], 2: [368, 24], 6: [640, 24], 7: [96, 134], 5: [368, 134], 8: [640, 134], 3: [96, 244], 4: [368, 244], 9: [640, 244] } },
-  tall: { W: 344, H: 404, bw: 106, bh: 86, pos: { 1: [2, 56], 7: [119, 56], 3: [236, 56], 2: [2, 182], 5: [119, 182], 4: [236, 182], 6: [2, 308], 8: [119, 308], 9: [236, 308] } }
+  wide: { W: 860, H: 458, bw: 196, bh: 82, pos: { 1: [96, 24], 2: [368, 24], 6: [640, 24], 7: [96, 134], 5: [368, 134], 8: [640, 134], 3: [96, 244], 4: [368, 244], 9: [640, 244], 10: [96, 354] } },
+  tall: { W: 344, H: 530, bw: 106, bh: 86, pos: { 1: [2, 56], 7: [119, 56], 3: [236, 56], 2: [2, 182], 5: [119, 182], 4: [236, 182], 6: [2, 308], 8: [119, 308], 9: [236, 308], 10: [2, 434] } }
 };
 function corners(x, y, w, h, k) {
   const r = x + w, b = y + h;
@@ -522,7 +522,7 @@ function routeSVG(kind, sel) {
   if (kind === 'wide') {
     const mid = (cy(1) + cy(3)) / 2;
     s += '<path class="ant" d="M38 ' + mid + ' V' + (mid - 30) + ' L26 ' + (mid - 52) + ' M38 ' + (mid - 30) + ' L50 ' + (mid - 52) + ' M38 ' + (mid - 30) + ' V' + (mid - 56) + '"/>' +
-      '<path class="wire" d="M38 ' + mid + ' H70 M70 ' + cy(1) + ' V' + cy(3) + ' M70 ' + cy(1) + ' H' + (Lx(1) - 2) + ' M70 ' + cy(7) + ' H' + (Lx(7) - 2) + ' M70 ' + cy(3) + ' H' + (Lx(3) - 2) + '"/>';
+      '<path class="wire" d="M38 ' + mid + ' H70 M70 ' + cy(1) + ' V' + cy(10) + ' M70 ' + cy(1) + ' H' + (Lx(1) - 2) + ' M70 ' + cy(7) + ' H' + (Lx(7) - 2) + ' M70 ' + cy(3) + ' H' + (Lx(3) - 2) + ' M70 ' + cy(10) + ' H' + (Lx(10) - 2) + '"/>';
     s += wire('M' + R(1) + ' ' + cy(1) + ' H' + (Lx(2) - 3), 2, 'L4', R(1) + 22, cy(1) - 8);
     s += wire('M' + R(2) + ' ' + cy(2) + ' H' + (Lx(6) - 3), 6, 'R4', R(2) + 22, cy(2) - 8);
     s += wire('M' + R(1) + ' ' + (cy(1) + 22) + ' H' + (R(1) + 36) + ' V' + cy(5) + ' H' + (Lx(5) - 3), 5, 'E5', R(1) + 42, cy(1) + 62);
@@ -530,7 +530,7 @@ function routeSVG(kind, sel) {
     s += wire('M' + R(5) + ' ' + cy(5) + ' H' + (Lx(8) - 3), 8, 'L7', R(5) + 22, cy(5) - 8);
     s += wire('M' + R(5) + ' ' + (cy(5) + 22) + ' H' + (R(5) + 36) + ' V' + cy(9) + ' H' + (Lx(9) - 3), 9, 'E10', R(5) + 42, cy(5) + 62);
   } else {
-    s += '<path class="ant" d="M172 22 V40 M172 22 L162 6 M172 22 L182 6 M172 22 V2"/><path class="wire" d="M172 40 V44 M' + cx(1) + ' 44 H' + cx(3) + ' M' + cx(1) + ' 44 V' + (T(1) - 2) + ' M' + cx(7) + ' 44 V' + (T(7) - 2) + ' M' + cx(3) + ' 44 V' + (T(3) - 2) + '"/>';
+    s += '<path class="ant" d="M172 22 V40 M172 22 L162 6 M172 22 L182 6 M172 22 V2"/><path class="wire" d="M172 40 V44 M' + cx(1) + ' 44 H' + cx(3) + ' M' + cx(1) + ' 44 V' + (T(1) - 2) + ' M' + cx(7) + ' 44 V' + (T(7) - 2) + ' M' + cx(3) + ' 44 V' + (T(3) - 2) + ' M' + ((R(1) + Lx(7)) / 2) + ' 44 V' + cy(10) + ' H' + (R(10) + 2) + '"/>';
     s += wire('M' + cx(1) + ' ' + B(1) + ' V' + (T(2) - 3), 2, 'L4', cx(1) + 8, B(1) + 24);
     s += wire('M' + (cx(1) + 30) + ' ' + B(1) + ' V' + (B(1) + 20) + ' H' + cx(5) + ' V' + (T(5) - 3), 5, 'E5', cx(5) + 8, B(1) + 34);
     s += wire('M' + cx(3) + ' ' + B(3) + ' V' + (T(4) - 3), 4, 'C8', cx(3) + 8, B(3) + 24);
@@ -554,7 +554,7 @@ function routeSVG(kind, sel) {
 function viewRoute() {
   const kind = window.innerWidth >= 760 ? 'wide' : 'tall'; ui.layout = kind;
   const sel = ui.phase || currentPhase().id, p = phaseById(sel), st = phaseState(p), b = budget(p.id);
-  let h = '<h1 class="vt">The route</h1><p class="lead">' + PHASES.length + ' phases. Three are open from the start: the bench deck, the case and MFOB, the base station. The rest open when you finish the lesson on their wire. Select a phase for its work and parts.</p>';
+  let h = '<h1 class="vt">The route</h1><p class="lead">' + PHASES.length + ' phases. Four are open from the start: the bench deck, the case, MFOB (the base station) and Aurelia. The rest open when you finish the lesson on their wire. Select a phase for its work and parts.</p>';
   h += '<div class="route-wrap route">' + routeSVG(kind, sel) + '</div>';
   h += '<section class="win"><h2 class="wt">Phase ' + p.id + '  ' + esc(p.name) + ' <small>' + st + '</small></h2><p class="lead">' + esc(p.blurb) + '</p><p class="' + (st === 'locked' ? 'warn' : 'muted') + '" style="margin:0 0 10px">' + esc(gateText(p)) + '</p>';
   h += '<h3 class="sub">Objectives</h3>' + p.obj.map(id => nodeRow(NODE[id])).join('');

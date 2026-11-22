@@ -1,4 +1,4 @@
-"""Generates www/content-ext.js: MFOB (base station), Jarvis and Wrist module content.
+"""Generates www/content-ext.js: MFOB (base station), Jarvis, Wrist module and Aurelia content.
 Edit the data here and rerun: python3 scripts/make-ext.py"""
 import json, pathlib
 
@@ -14,6 +14,9 @@ phases = [
  {"id": 9, "name": "Wrist module", "gate": {"node": "E10"},
   "blurb": "Your own wrist unit: mesh texts from the deck on a small screen, and flick gestures that control the deck. Built from an ESP32, a motion sensor and a printed case.",
   "obj": ["E12","E13","E14","E15","C9","L15","E16"]},
+ {"id": 10, "name": "Aurelia", "gate": None,
+  "blurb": "Secundus's own offline AI on the AI HAT+ 2, and the gadgets built around her. First up: a bedside screen and alarm clock run by the Arduino UNO. Open now.",
+  "obj": ["E17"]},
 ]
 
 def N(id, b, phase, t, mins, xp, req, why, learn, mission, done, terms=(), needs=(), cmd=None, code=None, links=None):
@@ -257,6 +260,31 @@ nodes = [
     "Version 2 might add its own LoRa radio so texts arrive without the deck nearby, or the Xbox Chatpad for typing replies."],
    "Wear it for a day: receive mesh texts, control the deck with flicks, and log what to change for version 2.",
    "A day's wear logged, with a version 2 list."),
+ # ---------------- AURELIA ----------------
+ N("E17","elec",10,"Bedside alarm clock",120,40,[],
+   "Your first gadget that works with the deck instead of beside it. The AI HAT covers the Pi's pins, so the UNO becomes the Pi's hands: it runs a small screen, two buttons and two buzzers, while the Pi tells it the time, your alarm and what Aurelia is doing. It builds on E4 (buttons) and E6 (the Pi reading the Arduino over USB).",
+   ["How the work splits. The Pi is the brain: it keeps the time and your alarm settings (set from your phone in the Aurelia page's menu, under Alarm clock) and decides when to ring. The UNO is the hands: it draws the screen, reads the buttons and drives the buzzers. They talk over the USB cable, the same serial link as E6.",
+    "The protocol. The Pi sends short text lines such as `AUR|R|qwen2:1.5b|192.168.1.151|55C|06:30|15` (Aurelia ready, model, IP, temperature, time, brightness) and `ALM|Tmrw 06:30|1|0|` (next alarm, ring mode, night). The UNO cuts each line at the `|` marks with `strtok`. When you press a button, the UNO sends back `B1` or `B2`. A protocol is just two programs agreeing on a format.",
+    "Why the Pi sends one short line at a time: the UNO can only hold 64 characters of incoming serial. If lines arrive faster than it reads them while it's busy drawing, characters are lost. So the Pi spaces lines 150 ms apart and keeps each one under 64 characters.",
+    "The screen uses SPI, a fast link with a clock wire (CLK, pin 13), a data wire (DIN, pin 11) and a chip-select (CS, pin 10) that says 'this is for you'. DC (pin 7) tells the screen whether the bytes are a command or pixels, and RST (pin 8) restarts it. It runs on 5 V here because the UNO's pins are 5 V, and the module needs its power and signal voltage to match.",
+    "Buttons work like E4: `INPUT_PULLUP` holds pins 2 and 3 HIGH until a press connects them to GND. A real button bounces, flickering on and off for a few milliseconds, so the sketch ignores any change within 40 ms of the last one. That's called debouncing.",
+    "Two buzzers. The passive one (green circuit board showing underneath) is a tiny speaker that plays whatever frequency you give `tone()`, so it carries the melody. The active one (sealed bottom, sticker on top) has its own oscillator and beeps whenever its pin is HIGH. It takes over, loud and simple, after you've snoozed twice.",
+    "The big idea: no long `delay()`s. A delay freezes the whole board, so a button pressed during a 300 ms note would be missed. Instead the sketch checks `millis()`, the milliseconds since power-on, and only plays the next note when it's due (snippet below). That's how one small chip juggles a screen, two buttons and a tune at the same time.",
+    "OLEDs wear out where they show the same thing for hours (burn-in). So the screen only redraws the bits that changed, dims after 2 minutes idle, sleeps after 20, and at night shows a dim red clock that drifts a couple of pixels every minute.",
+    "Wiring. Screen to UNO: VCC 5V, GND GND, DIN 11, CLK 13, CS 10, DC 7, RST 8 (male-to-male jumpers). Button 1 (page and snooze): pin 2 and GND. Button 2 (stop): pin 3 and GND. Passive buzzer: + to pin 9. Active buzzer: + (longer leg) to pin 6. Every − and GND goes to the breadboard's blue rail, joined to a UNO GND pin. Put each button across the breadboard's middle gap and use legs on opposite corners.",
+    "Software. In the Arduino IDE, install the Adafruit SSD1351 library (Sketch > Include Library > Manage Libraries, choose Install all), then open AureliaOLED.ino from the link below and upload it with the port set to /dev/ttyACM0, not ttyAMA10. The screen shows NO LINK until the Pi starts talking. Then run the Pi side (commands below); `--install` makes it a systemd service that starts at every boot."],
+   "Build the bedside clock: wire the screen, two buttons and both buzzers to the UNO, upload the sketch, run aurelia_oled.py --serial, set an alarm from your phone and press Test 10 s. Stretch: change the `melody` array in the sketch to a tune of your own.",
+   "The screen shows the time and Aurelia's status, button 1 flips pages, and a test alarm plays the melody, snoozes on button 1 and stops on button 2.",
+   terms=["protocol","spi","debounce","buzzer","millis","oled","burnin"], needs=["arduino","oled127"],
+   cmd=[["python3 ~/secundus-ai/aurelia_oled.py --serial","Run the bedside screen through the UNO"],
+        ["python3 ~/secundus-ai/aurelia_oled.py --install --serial","Start it at every boot"],
+        ["sudo systemctl restart secundus-ai aurelia-oled","Restart both after updating the files"],
+        ["journalctl -u aurelia-oled -f","Watch the bedside screen's log (Ctrl+C stops)"]],
+   code="// play the next note only when it's due; loop() keeps running in between\nif (millis() >= nextNote) {\n  tone(9, melody[noteIx], 220);       // passive buzzer on pin 9\n  noteIx = (noteIx + 1) % MELODY_LEN;\n  nextNote = millis() + 280;          // come back in 280 ms\n}",
+   links=[["AureliaOLED.ino (UNO sketch)", "https://github.com/10murph10/deck-ops/blob/main/extras/secundus-ai/AureliaOLED/AureliaOLED.ino"],
+          ["aurelia_oled.py (Pi side)", "https://github.com/10murph10/deck-ops/blob/main/extras/secundus-ai/aurelia_oled.py"],
+          ["secundus_ai.py (Aurelia web page)", "https://github.com/10murph10/deck-ops/blob/main/extras/secundus-ai/secundus_ai.py"],
+          ["Waveshare 1.27inch OLED wiki", "https://www.waveshare.com/wiki/1.27inch_RGB_OLED_Module"]]),
 ]
 
 parts = [
@@ -272,10 +300,18 @@ parts = [
  {"id": "imu", "short": "motion sensor", "phase": 9, "name": "MPU-6050 motion sensor board", "price": 6, "approx": True, "where": "Amazon.ca"},
  {"id": "oled", "short": "OLED screen", "phase": 9, "name": "0.96-inch SSD1306 OLED, I2C", "price": 8, "approx": True, "where": "Amazon.ca"},
  {"id": "lipo", "short": "LiPo battery", "phase": 9, "name": "Protected LiPo battery, 400 to 500 mAh", "price": 12, "approx": True, "where": "PiShop.ca or Amazon.ca", "note": "Get one with a protection board."},
+ {"id": "oled127", "short": "1.27-inch OLED", "phase": 10, "name": "Waveshare 1.27inch RGB OLED module (SSD1351, 128 × 96)", "price": None, "where": "Already have it", "dflt": "arrived", "note": "SPI colour OLED; the bedside screen in E17."},
  {"id": "projector", "short": "projector", "phase": 0, "name": "Pocket HDMI projector (later add-on)", "price": 200, "approx": True, "where": "Later", "note": "Runs off the Pi 5's second video port. On your ideas list for later."},
 ]
 
 terms = [
+ ["protocol","Protocol","An agreed message format two programs use to talk, like the Pi's AUR|...|... lines to the UNO.","E17"],
+ ["spi","SPI","A fast wired link for screens and chips: a clock wire, a data wire and a chip-select that picks which device listens.","E17"],
+ ["debounce","Debounce","Ignoring the few milliseconds of flicker when a button's contacts bounce, so one press counts once.","E17"],
+ ["buzzer","Active vs passive buzzer","An active buzzer beeps on its own when powered. A passive buzzer is a tiny speaker that plays the frequency you send it with tone().","E17"],
+ ["millis","millis()","Milliseconds since the board powered on. Checking it instead of using delay() lets a sketch do several things at once.","E17"],
+ ["oled","OLED","A screen where every pixel makes its own light: deep blacks, no backlight, but pixels can wear unevenly.","E17"],
+ ["burnin","Burn-in","An OLED ghost image left where the same thing was shown for hours. Avoid it by dimming, sleeping and shifting the picture.","E17"],
  ["asahi","Asahi Linux","The project that makes Linux run on Apple-chip Macs.","B2"],
  ["fedora","Fedora","The Linux Primus (MFOB) runs. Same commands as the Pi's, different package manager.","B2"],
  ["dnf","dnf","Fedora's package manager; the equivalent of apt on the Pi.","B3"],
@@ -299,7 +335,11 @@ terms = [
  ["callsign","Callsigns","MFOB (Murph FOB) is the whole home setup. Its stations take Latin ordinals: the MacBook server is Primus Station (hostname primus-station), the deck is Secundus Station (secundus-station), the next box Tertius Station. On air: \"Primus Station, this is Secundus Station.\"","B3"],
 ]
 
-commands = [["MFOB", [
+commands = [["Aurelia", [
+ ["python3 ~/secundus-ai/secundus_ai.py","Start the Aurelia web page (port 8080)","E17"],
+ ["python3 ~/secundus-ai/aurelia_oled.py --serial","Run the bedside screen through the UNO","E17"],
+ ["sudo systemctl restart secundus-ai aurelia-oled","Restart the web page and bedside screen","E17"]]],
+ ["MFOB", [
  ["sudo dnf upgrade --refresh","Update everything on Fedora","B3"],
  ["sudo dnf install name","Install a program on Fedora","B3"],
  ["sudo systemctl enable --now name","Start a service and start it at every boot","B5"],
@@ -322,7 +362,7 @@ safety = [
  ["MFOB battery","A laptop plugged in around the clock can swell its battery. Keep the 80% charge cap on, and check monthly for a bulging bottom case or lifted trackpad."],
 ]
 
-js = "/* Generated by scripts/make-ext.py: MFOB (base station), Jarvis, Wrist module. */\n(function () {\n"
+js = "/* Generated by scripts/make-ext.py: MFOB (base station), Jarvis, Wrist module, Aurelia. */\n(function () {\n"
 js += "BRANCHES.push(...%s);\n" % json.dumps(branches, ensure_ascii=False)
 js += "PHASES.push(...%s);\n" % json.dumps(phases, ensure_ascii=False)
 js += "NODES.push(...%s);\n" % json.dumps(nodes, ensure_ascii=False, indent=0)
