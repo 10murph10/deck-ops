@@ -597,7 +597,10 @@ NODES.push(...[
 ],
 "mission": "Design and print a case that holds everything, closes with screws, and takes a strap.",
 "done": "The parts fit, the screen shows through, and it charges closed.",
-"terms": []
+"terms": [],
+"train": [
+"fdm"
+]
 },
 {
 "id": "L15",

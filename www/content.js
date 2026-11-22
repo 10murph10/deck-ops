@@ -289,16 +289,17 @@ const NODES = [
     terms: ['esp32'] },
 
   /* ---------------- CAD & FAB ---------------- */
-  { id: 'C1', b: 'cad', phase: 3, t: 'Makerspace in', mins: 120, xp: 20, req: [], needs: ['membership'],
+  { id: 'C1', b: 'cad', phase: 3, t: 'Makerspace in', mins: 120, xp: 20, req: [], needs: ['membership'], train: ['fdm'],
     why: 'Creation Nation has about ten printers, a laser cutter and an electronics bench, and people who have built Pi projects.',
     learn: [
       'Creation Nation Makerspace, 440 Rosser Avenue, Brandon. Membership is $50/month plus tax, with 24/7 access once you\'re in.',
-      'Book the filament 3D printer training: slicing, materials, setup and common failures. It\'s free for members and $30 for non-members.',
+      'You can\'t use a machine until you\'ve done its training. Your bookings are on the Ops screen under Makerspace training: resin printer Nov 26, CNC router Dec 3, woodshop Dec 9, filament 3D printers Dec 15.',
+      'The filament printer training (Dec 15) is the one the case needs: slicing, materials, setup and common failures. The resin printer (Nov 26) prints fine detail like miniatures, but resin parts are brittle, so brackets and mounts stay on filament.',
       'Contact from their listings: makers@bnrc.ca or 204-729-2490 ext. 104.',
       'Ask while you\'re there whether they sell filament by the gram and where the electronics bench is.'
     ],
     links: [['Creation Nation, about', 'https://cnm.bnrc.ca/about-us/']],
-    mission: 'Join, finish the 3D printer training, and print the test model they give you.',
+    mission: 'Do the filament 3D printer training on Dec 15, get signed off, and print the test model they give you. Mark the sign-off on the Ops screen.',
     done: 'You\'re signed off on the printers.',
     terms: ['makerspace'] },
 
@@ -315,7 +316,7 @@ const NODES = [
     done: 'Tag designed and saved as an STL file.',
     terms: ['cad', 'stl'] },
 
-  { id: 'C3', b: 'cad', phase: 3, t: 'Print it', mins: 60, xp: 10, req: ['C1', 'C2'],
+  { id: 'C3', b: 'cad', phase: 3, t: 'Print it', mins: 60, xp: 10, req: ['C1', 'C2'], train: ['fdm'],
     why: 'Turning a file into a part you can hold, and learning which settings matter.',
     learn: [
       'A slicer (Bambu Studio, PrusaSlicer or Cura; use whatever the makerspace runs) turns an STL into layer-by-layer printer instructions.',
@@ -327,7 +328,7 @@ const NODES = [
     done: 'The tag is in your hand.',
     terms: ['slicer', 'infill', 'petg'] },
 
-  { id: 'C4', b: 'cad', phase: 3, t: 'Measure twice', mins: 45, xp: 15, req: ['C3'], needs: ['screen', 'calipers'],
+  { id: 'C4', b: 'cad', phase: 3, t: 'Measure twice', mins: 45, xp: 15, req: ['C3'], needs: ['screen', 'calipers'], train: ['fdm'],
     why: 'A case is only as good as its measurements. Printed parts also come out slightly off-size, and you need to know by how much.',
     learn: [
       'Digital calipers are the tool; a $25 pair is fine.',
@@ -339,7 +340,7 @@ const NODES = [
     done: 'The screen drops into a printed frame without forcing.',
     terms: ['tolerance'] },
 
-  { id: 'C5', b: 'cad', phase: 3, t: 'Bracket design', mins: 90, xp: 20, req: ['C4'], needs: ['case', 'standoffs'],
+  { id: 'C5', b: 'cad', phase: 3, t: 'Bracket design', mins: 90, xp: 20, req: ['C4'], needs: ['case', 'standoffs'], train: ['fdm'],
     why: 'The first real deck part: the plate that holds the Pi inside the case.',
     learn: [
       'A standoff is a threaded post that holds a board off a surface. M2.5 × 6 mm brass standoffs suit the Pi.',
@@ -509,6 +510,15 @@ const PARTS = [
   { id: 'esp32', short: 'ESP32', phase: 5, name: 'ESP32 dev board', price: 15, approx: true, where: 'Amazon.ca or PiShop.ca' },
   { id: 'longwire', short: 'long-wire antenna', phase: 6, name: 'HF long-wire antenna and 9:1 balun', price: 45, approx: true, where: 'Amazon.ca or ham supplier', note: 'For shortwave.' },
   { id: 'ht', short: 'handheld radio', phase: 6, name: '2 m / 70 cm handheld radio', price: 70, approx: true, where: 'Ham supplier', note: 'Only once you hold a call sign.' }
+];
+
+/* Makerspace sign-offs at Creation Nation. You can't use a machine until you've done its training.
+   Lessons that need one list it in train: []; they stay locked until you mark the sign-off on the Ops screen. */
+const TRAININGS = [
+  { id: 'resin', t: 'Resin 3D printing', full: 'Members Only: Resin 3D Printing (Anycubic Photon 4)', at: '2026-11-26T19:00', where: 'Creation Nation', unlocks: 'the resin printer' },
+  { id: 'cnc', t: 'CNC Router I', full: 'Members Only: CNC Router I', at: '2026-12-03T18:30', where: 'Creation Nation', unlocks: 'the CNC router' },
+  { id: 'wood', t: 'Woodshop basics', full: 'Members Only: Woodshop Basics: Safety and Sizing', at: '2026-12-09T18:00', where: 'Creation Nation', unlocks: 'the woodshop' },
+  { id: 'fdm', t: 'Filament 3D printer training', full: 'Members Only: Filament 3D Printer Training', at: '2026-12-15T19:00', where: 'Creation Nation', unlocks: 'the filament 3D printers' }
 ];
 
 /* Codex terms. from = node that teaches it. */

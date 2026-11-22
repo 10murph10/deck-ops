@@ -19,12 +19,13 @@ phases = [
   "obj": ["E17"]},
 ]
 
-def N(id, b, phase, t, mins, xp, req, why, learn, mission, done, terms=(), needs=(), cmd=None, code=None, links=None):
+def N(id, b, phase, t, mins, xp, req, why, learn, mission, done, terms=(), needs=(), cmd=None, code=None, links=None, train=None):
     n = {"id": id, "b": b, "phase": phase, "t": t, "mins": mins, "xp": xp, "req": list(req), "needs": list(needs),
          "why": why, "learn": learn, "mission": mission, "done": done, "terms": list(terms)}
     if cmd: n["cmd"] = cmd
     if code: n["code"] = code
     if links: n["links"] = links
+    if train: n["train"] = list(train)
     return n
 
 nodes = [
@@ -243,7 +244,8 @@ nodes = [
     "Print in PETG, or TPU if the makerspace has it for a case that flexes.",
     "The strap is your call: nylon, leather, or something from the forge."],
    "Design and print a case that holds everything, closes with screws, and takes a strap.",
-   "The parts fit, the screen shows through, and it charges closed."),
+   "The parts fit, the screen shows through, and it charges closed.",
+   train=["fdm"]),
  N("L15","linux",9,"Deck bridge",90,25,["E14","L7","R5"],
    "The deck connects the pieces: mesh messages from its Meshtastic node go to your wrist, and your wrist's gestures go to the deck.",
    ["On the Pi, the Python library bleak connects to the wrist, and the meshtastic library reads messages from the deck's node over USB.",

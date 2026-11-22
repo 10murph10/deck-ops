@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 const APP_REPO = '10murph10/deck-ops';
 const APK_URL = 'https://github.com/' + APP_REPO + '/releases/latest/download/DeckOps.apk';
 const Cap = window.Cap || null;
@@ -42,10 +42,10 @@ const THEMES = [['phosphor', 'Phosphor', '#03140c'], ['amber', 'Amber', '#140d03
    LOG: synced journal entries; each carries u (updated ms) and del (tombstone).
    DEV: this device only (theme, sound, reminders toggles, GitHub key). Never synced. */
 const LS = 'deckops.state.v2', LSLOG = 'deckops.log.v2', LSDEV = 'deckops.device.v1';
-const blank = () => ({ v: 2, started: todayISO(), done: {}, parts: {}, custom: {}, ahead: {}, tu: {}, sched: { on: true, weekday: 4, hour: 19, minute: 0 }, t: {} });
+const blank = () => ({ v: 2, started: todayISO(), done: {}, parts: {}, custom: {}, ahead: {}, tu: {}, train: {}, sched: { on: true, weekday: 4, hour: 19, minute: 0 }, t: {} });
 function normalize(d) {
   const o = Object.assign(blank(), d || {});
-  ['done', 'parts', 'ahead', 'tu', 't'].forEach(k => { if (!o[k] || typeof o[k] !== 'object' || Array.isArray(o[k])) o[k] = {}; });
+  ['done', 'parts', 'ahead', 'tu', 'train', 't'].forEach(k => { if (!o[k] || typeof o[k] !== 'object' || Array.isArray(o[k])) o[k] = {}; });
   if (Array.isArray(o.custom)) { const m = {}; o.custom.forEach(c => { if (c && c.id) m[c.id] = c; }); o.custom = m; }
   if (!o.custom || typeof o.custom !== 'object') o.custom = {};
   if (!o.sched || typeof o.sched !== 'object') o.sched = blank().sched;
@@ -55,7 +55,7 @@ function normalize(d) {
 const readJSON = (k, d) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : d; } catch (e) { return d; } };
 let S = normalize(readJSON(LS, null) || readJSON('deck-ops-v1', null));
 let LOG = (readJSON(LSLOG, null) || readJSON('deck-ops-log-v1', []) || []).filter(e => e && e.id);
-const DEV = Object.assign({ theme: 'phosphor', sound: true, haptics: true, speak: false, vrate: 0.67, vpitch: 0.95, vvoice: '', vfx: true, akey: '', tmodel: 'claude-sonnet-5-5', remNight: true, remParts: true, remUpd: true,
+const DEV = Object.assign({ theme: 'phosphor', sound: true, haptics: true, speak: false, vrate: 0.67, vpitch: 0.95, vvoice: '', vfx: true, akey: '', tmodel: 'claude-sonnet-5-5', remNight: true, remParts: true, remUpd: true, remTrain: true,
   owner: '10murph10', repo: 'deck-ops-data', token: '', lastSync: 0, syncErr: '', bootSeen: false, introSeen: false }, readJSON(LSDEV, {}));
 
 const ui = { view: 'ops', branch: 'linux', phase: null, lesson: null, codexTab: 'terms', q: '', logTag: 'all',
@@ -88,7 +88,7 @@ function mergeState(a, b) {
   const keys = new Set(Object.keys(a.t || {}).concat(Object.keys(b.t || {})));
   keys.forEach(p => { const ta = (a.t || {})[p] || 0, tb = (b.t || {})[p] || 0; if (tb > ta) { setPath(out, p, clone(getPath(b, p))); out.t[p] = tb; } });
   // items the other side has but never stamped (older formats): keep them
-  ['done', 'parts', 'custom', 'ahead'].forEach(sec => Object.keys(b[sec] || {}).forEach(k => { if (!(sec + '.' + k in out.t) && out[sec][k] === undefined) out[sec][k] = clone(b[sec][k]); }));
+  ['done', 'parts', 'custom', 'ahead', 'train'].forEach(sec => Object.keys(b[sec] || {}).forEach(k => { if (!(sec + '.' + k in out.t) && out[sec][k] === undefined) out[sec][k] = clone(b[sec][k]); }));
   if (b.started && b.started < out.started) out.started = b.started;
   return normalize(out);
 }
@@ -120,7 +120,31 @@ function nodeLock(n) {
   if (!phaseUnlocked(p)) return { kind: 'phase', text: 'Opens with phase ' + p.id + ', ' + p.name + ' (finish ' + p.gate.node + ' ' + NODE[p.gate.node].t + ')' };
   const miss = n.req.filter(r => !isDone(r));
   if (miss.length) return { kind: 'req', text: 'Needs ' + miss.map(r => r + ' ' + NODE[r].t).join(', ') };
+  const tr = (n.train || []).filter(t => !trainDone(t));
+  if (tr.length) return { kind: 'train', text: 'No machine use until you\'re signed off: ' + tr.map(trainLabel).join('; ') };
   return null;
+}
+/* makerspace sign-offs */
+const TRN = {}; TRAININGS.forEach(t => { TRN[t.id] = t; });
+const trainDone = id => !!(S.train && S.train[id]);
+const trainAt = t => new Date(t.at);
+const trainWhen = t => { const d = trainAt(t); return d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }) + ', ' + hhmm(d.getHours(), d.getMinutes()); };
+function trainLabel(id) {
+  const t = TRN[id]; if (!t) return id;
+  return t.t + (trainAt(t) > new Date() ? ' (booked ' + trainWhen(t) + ')' : ' (done it? mark the sign-off on Ops)');
+}
+function trainSection() {
+  if (!TRAININGS.length) return '';
+  const now = new Date();
+  const rows = TRAININGS.slice().sort((a, b) => a.at.localeCompare(b.at)).map(t => {
+    const done = trainDone(t.id), started = trainAt(t) <= now;
+    const opens = NODES.filter(n => (n.train || []).includes(t.id)).map(n => n.id);
+    const right = done ? '<span class="okline">[x] signed off</span><button class="btn ghost" data-trainundo="' + t.id + '">Undo</button>'
+      : started ? '<button class="btn primary" data-train="' + t.id + '">I\'m signed off</button>' : '<span class="tbk">booked</span>';
+    return '<div class="trow' + (done ? ' done' : '') + '"><div><span class="nt">' + esc(t.t) + '</span><span class="nm">' + esc(trainWhen(t) + '   ' + t.where) + '</span>' +
+      '<span class="nn">' + esc('Opens ' + t.unlocks + (opens.length ? ': ' + opens.join(', ') : '')) + '</span></div><div class="tr-r">' + right + '</div></div>';
+  }).join('');
+  return '<section class="win" id="trainsec"><h2 class="wt">Makerspace training</h2><p class="muted" style="margin:0 0 6px">Members-only sign-offs at Creation Nation. No machine use until you\'re signed off on it.</p>' + rows + '</section>';
 }
 function currentPhase() { const act = PHASES.filter(p => phaseState(p) === 'active'); return act[0] || PHASES[PHASES.length - 1]; }
 
@@ -373,6 +397,13 @@ const REM = {
         if (at > new Date() && i < 50) list.push({ id: 100 + i, title: 'Parts due today', body: (p.short || p.name) + ' should arrive today. Mark it arrived when it lands.', schedule: { at, allowWhileIdle: true }, extra: { go: 'parts' } });
       });
     }
+    if (DEV.remTrain) {
+      TRAININGS.filter(t => !trainDone(t.id)).forEach((t, i) => {
+        const at = trainAt(t), before = new Date(at.getTime() - 3 * 3600e3), after = new Date(at); after.setDate(after.getDate() + 1); after.setHours(9, 0, 0, 0);
+        if (before > new Date()) list.push({ id: 300 + i, title: 'Creation Nation tonight', body: t.t + ' at ' + hhmm(at.getHours(), at.getMinutes()) + '. Bring your membership card.', schedule: { at: before, allowWhileIdle: true }, extra: { go: 'ops' } });
+        if (after > new Date()) list.push({ id: 320 + i, title: 'Signed off?', body: 'If you passed ' + t.t + ', mark it on Ops to open ' + t.unlocks + ' lessons.', schedule: { at: after, allowWhileIdle: true }, extra: { go: 'ops' } });
+      });
+    }
     if (DEV.remUpd && isDone('L1')) {
       list.push({ id: 2, title: 'Update check', body: 'Run sudo apt update, then sudo apt full-upgrade on the deck.', schedule: { on: { day: 1, hour: 19, minute: 0 }, allowWhileIdle: true }, extra: { go: 'node-l4' } });
     }
@@ -486,10 +517,13 @@ function viewOps() {
   h += first ? lessonCard(first, night) : '<p class="empty">Every open lesson is done. Check Route for what opens next.</p>';
   h += '<div class="ops"><div>';
   if (nu.length > 1) h += '<section class="win"><h2 class="wt">After that</h2>' + nu.slice(1).map(nodeRow).join('') + '</section>';
+  h += trainSection();
   h += '</div><div><section class="win"><h2 class="wt">Status</h2>';
   h += qrow('Deck night', dn ? esc(dn.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }) + ', ' + hhmm(S.sched.hour, S.sched.minute)) : 'off', 'data-sys');
   h += qrow('Phase ' + cur.id, esc(cur.name) + '   ' + cd + ' / ' + cur.obj.length, 'data-routeto="' + cur.id + '"', meter(cd, cur.obj.length));
   h += qrow('Parts', inbound.length ? esc((inbound[0].short || inbound[0].name) + (inbound[0].eta ? ' due ' + fmtShort(inbound[0].eta) : ' on the way')) + (inbound.length > 1 ? ' +' + (inbound.length - 1) : '') : toOrder.length + ' to order', 'data-go="parts"');
+  const nextTr = TRAININGS.filter(t => !trainDone(t.id)).sort((a, b) => a.at.localeCompare(b.at))[0];
+  if (nextTr) h += qrow('Makerspace', esc(nextTr.t + (trainAt(nextTr) > new Date() ? '   ' + trainWhen(nextTr) : '   mark sign-off')), 'data-jump="trainsec"');
   h += qrow('Lessons', doneN + ' of ' + NODES.length + '   ' + xpTotal() + ' xp', 'data-go="skills"');
   h += qrow('Log', latest ? esc(fmtShort(latest.date) + ': ' + latest.t) : 'no entries yet', 'data-go="log"');
   return h + '</section></div></div>';
@@ -1228,7 +1262,7 @@ function sysHTML() {
   h += tog('night', 'Weekly deck night', 'With the next lesson in the notification', sc.on) +
     '<div class="row" style="margin:8px 0 12px"><label class="f" style="display:flex;gap:8px;align-items:center">Day <select data-sched="weekday">' + WEEKDAYS.map((w, i) => '<option value="' + (i + 1) + '"' + (sc.weekday === i + 1 ? ' selected' : '') + '>' + w + '</option>').join('') + '</select></label>' +
     '<label class="f" style="display:flex;gap:8px;align-items:center">Time <input type="time" data-sched="time" value="' + String(sc.hour).padStart(2, '0') + ':' + String(sc.minute).padStart(2, '0') + '"></label></div>' +
-    tog('remParts', 'Parts due', '8 am on a part\'s ETA', DEV.remParts) + tog('remUpd', 'Monthly update check', '1st of the month, 7 pm, once the deck is running', DEV.remUpd);
+    tog('remParts', 'Parts due', '8 am on a part\'s ETA', DEV.remParts) + tog('remTrain', 'Makerspace training', '3 hours before, and a sign-off check the next morning', DEV.remTrain) + tog('remUpd', 'Monthly update check', '1st of the month, 7 pm, once the deck is running', DEV.remUpd);
   if (REM.ok() && ui.notif === 'granted') h += '<div class="row" style="margin-top:10px"><button class="btn ghost" data-testnotif>Send a test</button></div>';
   h += '</div>';
   h += '<div class="set"><h3>Sync</h3>';
@@ -1396,6 +1430,9 @@ document.addEventListener('click', async ev => {
   if (a('data-copyt') != null) { const [id, k, f] = a('data-copyt').split(':'), s = tutorFor(id).steps[Number(k)]; return copyText(s[f], 'Code copied'); }
   if (a('data-askclaude') != null) { const [id, k] = a('data-askclaude').split(':'); try { navigator.clipboard.writeText(claudePrompt(id, Number(k))).catch(() => {}); } catch (e) {} return; }
   if (a('data-undo') != null) { put('done', a('data-undo'), null); return commit(a('data-undo') + ' marked not done'); }
+  if (a('data-train') != null) { const t = TRN[a('data-train')]; put('train', t.id, todayISO()); return commit('Signed off: ' + t.t + '. ' + t.unlocks.charAt(0).toUpperCase() + t.unlocks.slice(1) + ' lessons are open.'); }
+  if (a('data-trainundo') != null) { put('train', a('data-trainundo'), null); return commit('Sign-off removed'); }
+  if (a('data-jump') != null) { const el = document.getElementById(a('data-jump')); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   if (a('data-copy') != null) return copyText(a('data-copy'));
   if (a('data-copycode') != null) return copyText(NODE[a('data-copycode')].code, 'Code copied');
   if (a('data-term') != null) {
@@ -1445,7 +1482,7 @@ document.addEventListener('click', async ev => {
     const k = a('data-tog');
     if (k === 'night') put('sched', null, Object.assign({}, S.sched, { on: !S.sched.on }));
     else { DEV[k] = !DEV[k]; saveDev(); }
-    if (k === 'night' || k === 'remParts' || k === 'remUpd') { if (REM.ok() && ui.notif !== 'granted') await REM.ask(); }
+    if (k === 'night' || k === 'remParts' || k === 'remUpd' || k === 'remTrain') { if (REM.ok() && ui.notif !== 'granted') await REM.ask(); }
     return commit();
   }
   if (a('data-intro') != null) { DEV.introSeen = true; saveDev(); return render(); }
