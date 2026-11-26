@@ -21,7 +21,7 @@ const PHASES = [
     obj: ['E8', 'E9', 'L8'] },
   { id: 5, name: 'Mesh net', gate: { node: 'E5' },
     blurb: 'Meshtastic nodes for off-grid text, a first ESP32, soldering, and gadgets that report to the deck.',
-    obj: ['E6', 'E7', 'E10', 'L7', 'R5', 'L10'] },
+    obj: ['E6', 'E7', 'E10', 'L7', 'R5', 'L16'] },
   { id: 6, name: 'On the air', gate: { node: 'R4' },
     blurb: 'Shortwave listening across continents, then the Basic certificate and a VE4 call sign of your own.',
     obj: ['R6', 'R7'] }
@@ -122,16 +122,17 @@ const NODES = [
     done: 'A Field log entry with your temperature readings.',
     terms: ['python'] },
 
-  { id: 'L8', b: 'linux', phase: 4, t: 'Break it and rebuild', mins: 60, xp: 20, req: ['L3'],
+  { id: 'L8', b: 'linux', phase: 4, t: 'Break it and rebuild', mins: 60, xp: 20, req: ['L3'], needs: ['sd128', 'cardreader'],
     why: 'Before the deck goes into the field, prove you can bring it back from nothing.',
     learn: [
       'Back up your files to a USB stick: `cp -r ~/deck /media/yourname/STICK/` (the stick\'s name will differ).',
       'On your laptop, Raspberry Pi Imager writes a fresh OS to the card. Choose Raspberry Pi 5, Raspberry Pi OS (64-bit), then the card.',
       'Its settings screen can preset your username, Wi-Fi, hostname and SSH so the rebuilt deck comes up ready.',
-      'Restore your files from the stick and reinstall your tools. Keep a text file listing every install command; that list is your rebuild kit.'
+      'Restore your files from the stick and reinstall your tools. Keep a text file listing every install command; that list is your rebuild kit.',
+      'Rebuild onto the new 128 GB SanDisk card (write it from your Windows PC with the USB card reader) and keep the original card in a labelled bag. If the rebuild goes sideways, swap the old card back in and nothing is lost.'
     ],
     links: [['Raspberry Pi Imager', 'https://www.raspberrypi.com/software/']],
-    mission: 'Back up, wipe the card with Imager, rebuild, restore your notes, and reinstall htop and the SDR drivers.',
+    mission: 'Back up, write a fresh OS to the new card with Imager, rebuild, restore your notes, and reinstall everything on your rebuild list.',
     done: 'The rebuilt deck runs everything it did before.',
     terms: ['imager'] },
 
@@ -148,15 +149,31 @@ const NODES = [
     done: 'Both screens show one desktop and windows move between them.',
     terms: [] },
 
-  { id: 'L10', b: 'linux', phase: 5, t: 'Status board', mins: 90, xp: 25, req: ['L9', 'L7', 'E6'],
-    why: 'The side screen becomes the deck\'s instrument panel: radio, mesh, system and gadgets at a glance.',
+  { id: 'L10', b: 'linux', phase: 11, t: 'Status board', mins: 90, xp: 25, req: ['L7', 'E6'],
+    why: 'An instrument panel for the deck, built in the terminal on the HP monitor with what already runs: system, temperature, your gadget feed and the system log. No SDR, mesh nodes or 7-inch needed yet. Those panels join in L16 once that gear is here.',
     learn: [
-      'Each panel is just a window on the 7-inch. Drag and resize them by their edges and corners into a grid.',
-      'System: `htop` for CPU and memory, and `watch -n 5 vcgencmd measure_temp` for the chip temperature, refreshing every 5 seconds.',
-      'Gadgets: `tail -f ~/deck/logs/sensor.csv` prints each new reading from your E6 logger as it arrives.',
+      'tmux splits one terminal into panes, and the panes keep running when you close the window or your SSH session drops. Install it with `sudo apt install tmux`.',
+      '`tmux new -s board` starts a session called board. Inside it, every command starts with Ctrl+B, let go, then a key: `%` splits side by side, `"` splits top and bottom, an arrow key moves between panes, `d` detaches and leaves it running.',
+      '`tmux attach -t board` brings it back, at the deck or over SSH from your Windows PC (L6). Same board, still running.',
+      'System pane: `htop`. Temperature pane: `watch -n 5 vcgencmd measure_temp` reruns the reading every 5 seconds.',
+      'Gadget pane: `tail -F ~/deck/logs/sensor.csv` prints each new reading from your E6 logger as it arrives. Capital F keeps waiting if the file isn\'t there yet.',
+      'Log pane: `journalctl -f` follows the system\'s own messages. Plug the UNO in and watch the deck notice it. If it says you can\'t see the log, put `sudo` in front.',
+      'Once the layout is right, the script below rebuilds the whole board with one command. Save it as ~/deck/board.sh and `chmod +x` it (L5).'
+    ],
+    cmd: [['sudo apt install tmux', 'Install tmux'], ['tmux new -s board', 'Start a session called board'], ['tmux attach -t board', 'Get back into it'], ['tmux ls', 'List running sessions'], ['~/deck/board.sh', 'Rebuild the board']],
+    code: '#!/bin/bash\n# board.sh: rebuild the four-pane status board\ntmux kill-session -t board 2>/dev/null\ntmux new-session -d -s board \'htop\'\ntmux split-window -h -t board \'watch -n 5 vcgencmd measure_temp\'\ntmux split-window -v -t board \'tail -F ~/deck/logs/sensor.csv\'\ntmux select-pane -t board:0.0\ntmux split-window -v -t board \'journalctl -f\'\ntmux attach -t board',
+    mission: 'Build a four-pane board on the HP monitor (htop, temperature, sensor feed, system log) with your E6 logger running. Detach, reattach over SSH from your Windows PC, then save board.sh.',
+    done: 'After a reboot, board.sh brings all four panes back, and you can reattach from your PC.',
+    terms: ['tmux'] },
+
+  { id: 'L16', b: 'linux', phase: 5, t: 'Radio status board', mins: 60, xp: 20, req: ['L10', 'L9', 'R2', 'R5'],
+    why: 'The board from L10 moves to the 7-inch and picks up the radio: waterfall, mesh, system and gadgets at a glance.',
+    learn: [
+      'Each panel is a window on the 7-inch. Drag and resize them by their edges and corners into a grid.',
       'Radio: the SDR waterfall from R2, sized to fill half the screen.',
       'Mesh: the Meshtastic web client in Chromium shows messages and the node map from the deck\'s node.',
-      'Once the layout is right, save the startup commands in a script so one command rebuilds the board.'
+      'System and gadgets: your L10 terminal board, dragged across to fill the other half.',
+      'Add the radio programs to board.sh so one command still rebuilds everything.'
     ],
     mission: 'Build a four-panel status board on the 7-inch (waterfall, mesh, htop, sensor feed) while you work on the HP monitor.',
     done: 'All four panels run on the side screen at once, and one script brings them back after a reboot.',
@@ -507,7 +524,7 @@ const PARTS = [
   { id: 'cells', short: '18650 cells', phase: 4, name: '18650 cells ×2, named brand', price: 35, approx: true, where: 'Reputable Canadian battery seller', note: 'Molicel, Samsung, Sony/Murata or LG. Not marketplace no-names.' },
   { id: 'charger', short: 'charger', phase: 4, name: 'Smart Li-ion charger', price: 30, approx: true, where: 'Local or online' },
   { id: 'mesh', short: 'Meshtastic nodes', phase: 5, name: 'Meshtastic nodes ×2 (Heltec V3)', price: 90, approx: true, where: 'Amazon.ca', note: 'One for the deck, one for your pocket.' },
-  { id: 'esp32', short: 'ESP32', phase: 5, name: 'ESP32 dev board', price: 15, approx: true, where: 'Amazon.ca or PiShop.ca' },
+  { id: 'esp32', short: 'ESP32', phase: 5, name: 'ESP32 dev board (ELEGOO ESP32 Basic Starter Kit)', price: null, where: 'Already have it', dflt: 'arrived', note: 'The kit also has an OLED, a PIR motion sensor and a DHT11 temperature sensor.' },
   { id: 'longwire', short: 'long-wire antenna', phase: 6, name: 'HF long-wire antenna and 9:1 balun', price: 45, approx: true, where: 'Amazon.ca or ham supplier', note: 'For shortwave.' },
   { id: 'ht', short: 'handheld radio', phase: 6, name: '2 m / 70 cm handheld radio', price: 70, approx: true, where: 'Ham supplier', note: 'Only once you hold a call sign.' }
 ];
@@ -538,6 +555,7 @@ const TERMS = [
   ['ssh', 'SSH', 'Secure shell. Drive another computer\'s terminal over the network.', 'L6'],
   ['hostname', 'Hostname', 'A computer\'s name on the network. The deck is secundus-station, reachable as secundus-station.local; the server is primus-station.', 'L6'],
   ['python', 'Python', 'A readable programming language, already on the Pi. Good for logging and automation.', 'L7'],
+  ['tmux', 'tmux', 'Terminal multiplexer: splits one terminal into panes that keep running after you close the window or drop SSH.', 'L10'],
   ['imager', 'Raspberry Pi Imager', 'Free tool that writes a fresh operating system onto a microSD card.', 'L8'],
   ['arduino', 'Arduino', 'A family of small programmable boards for gadgets. Runs one program, no operating system.', 'E1'],
   ['sketch', 'Sketch', 'What Arduino calls a program.', 'E1'],
@@ -618,7 +636,10 @@ const COMMANDS = [
     ['free -h', 'Memory in use', 'L4'],
     ['vcgencmd measure_temp', 'Chip temperature', 'L7'],
     ['watch -n 5 command', 'Rerun a command every 5 seconds', 'L10'],
-    ['tail -f file', 'Follow a file as new lines arrive (Ctrl+C stops)', 'L10'],
+    ['tail -F file', 'Follow a file as new lines arrive (Ctrl+C stops)', 'L10'],
+    ['journalctl -f', 'Follow the system log (Ctrl+C stops)', 'L10'],
+    ['tmux new -s board', 'Start a tmux session (Ctrl+B then d leaves it running)', 'L10'],
+    ['tmux attach -t board', 'Get back into a tmux session', 'L10'],
     ['sudo reboot', 'Restart', 'L4'],
     ['sudo shutdown -h now', 'Shut down cleanly', 'L4']
   ]],

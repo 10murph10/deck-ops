@@ -1,8 +1,15 @@
-"""Generates www/content-ext.js: MFOB (base station), Jarvis, Wrist module and Aurelia content.
+"""Generates www/content-ext.js: MFOB (base station), Jarvis, Wrist module, Aurelia and Bench school content.
 Edit the data here and rerun: python3 scripts/make-ext.py"""
 import json, pathlib
 
 branches = [{"id": "base", "name": "MFOB", "blurb": "Murph FOB: the old M1 MacBook as an always-on Linux server, callsign Primus Station. Storage, photo backup, GoPro imports, Forge files, deck backups."}]
+
+# Shown first on the route and Ops screen: the learning track while the case waits for printer training.
+front_phases = [
+ {"id": 11, "name": "Bench school", "gate": None,
+  "blurb": "Learning first while the case waits for the filament printer training on Dec 15. Your new parts kits, capacitors, transistors and diodes, I2C screens, the Pico 2, the ESP32 touch screens, a terminal status board, and your first perfboard build. Open now; no SDR needed.",
+  "obj": ["E18","E19","E20","E21","L10","E22","E23","E24"]},
+]
 
 phases = [
  {"id": 7, "name": "MFOB: Primus Station", "gate": None,
@@ -287,6 +294,95 @@ nodes = [
           ["aurelia_oled.py (Pi side)", "https://github.com/10murph10/deck-ops/blob/main/extras/secundus-ai/aurelia_oled.py"],
           ["secundus_ai.py (Aurelia web page)", "https://github.com/10murph10/deck-ops/blob/main/extras/secundus-ai/secundus_ai.py"],
           ["Waveshare 1.27inch OLED wiki", "https://www.waveshare.com/wiki/1.27inch_RGB_OLED_Module"]]),
+
+ # ---------------- BENCH SCHOOL ----------------
+ N("E18","elec",11,"Sort the parts drawer",45,15,[],
+   "Six new kits means a few hundred parts. Sorted and labelled, the right one is ten seconds away. Mixed in a bag, every build starts with a hunt. Sorting is also how you learn to read them.",
+   ["Resistors: keep each value on its paper strip and label the compartment. The strips are printed short-hand: 330R is 330 Ω, 2K2 is 2.2 kΩ, 4K7 is 4.7 kΩ. They're 1% metal film, blue with five bands, the same as your Elegoo kit's.",
+    "LEDs: the 3 mm ones follow every rule from E2. Long leg +, and a 220 Ω resistor. Blue and white drop about 3 V, red and yellow about 2 V.",
+    "Diodes: current flows one way only, and the painted band marks the cathode, the − end. 1N4148 is the tiny glass one for signals. 1N4007 is the black 1 A workhorse. 1N5819 and 1N5822 are Schottky diodes: they waste less voltage, so they suit battery circuits. FR107 and FR207 are fast-recovery, and 1N5399 and 1N5408 are bigger rectifiers.",
+    "Electrolytic capacitors are the little cans. They have a side: the stripe of − signs marks the negative leg, and the long leg is +. Backwards, they can bulge or pop, so read the stripe every time. The voltage printed on them is a ceiling: your 16 V and 50 V caps are both fine at 5 V.",
+    "Ceramic capacitors are the orange beads, and either way round is fine. The code is two digits then how many zeros, in picofarads: 104 is 10 and four zeros, so 100,000 pF, which is 100 nF. 102 is 1 nF. A bare 22 is 22 pF.",
+    "Transistors: the number is on the flat face. NPN and PNP come in pairs: 2N3904 (NPN) and 2N3906 (PNP), S8050 and S8550. Pin order differs by family. With the flat face toward you and the legs down, 2N3904, 2N3906, S8050 and S8550 read E, B, C from left to right. The Japanese-style C945, C1815, A1015 and A733 read E, C, B. When unsure, search the part number plus \"pinout\".",
+    "Spares from the photo go in too: the second LCD, the 0.91-inch and 0.96-inch OLEDs, the 4-digit display, the USB-C charger boards and the knob."],
+   "Sort all six kits into labelled compartments, then write a one-line inventory per kit in the Field log with a photo of the drawer.",
+   "Every part has a labelled home and the inventory is logged.",
+   terms=["capacitor","diode","transistor"], needs=["kit-res","kit-led","kit-diode","kit-ecap","kit-ccap","kit-trans"]),
+ N("E19","elec",11,"Capacitors",60,15,["E5","E18"],
+   "Capacitors smooth power, steady chips and set timing. Watching one fill on the Serial Plotter makes the idea stick.",
+   ["A capacitor stores charge like a small tank. Fill it through a resistor and it fills fast at first, then slower as it gets full.",
+    "How fast is set by R × C, in seconds, called the time constant. 10 kΩ × 470 µF = 10,000 × 0.000470 = 4.7 s. In one time constant it reaches 63% of the supply; after five it's as good as full.",
+    "Wiring: pin 8 to a 10 kΩ resistor, the resistor's other end to the 470 µF cap's long (+) leg, the cap's striped (−) leg to GND. A jumper from the resistor-and-cap row to A0 lets the UNO watch the voltage.",
+    "The sketch below charges for 30 seconds (pin 8 HIGH), then discharges for 30 (pin 8 LOW). Open Tools > Serial Plotter at 9600 to watch the curve.",
+    "The other job: a 100 nF ceramic (104) right beside a chip's power pins soaks up tiny spikes. Every perfboard build from here gets one."],
+   "Plot the charge and discharge curves, then time how long the reading takes to reach 646 (63% of 1023) and compare it with 4.7 s. Swap in the 220 µF cap and predict the new time before you run it.",
+   "Your measured time is within about 20% of R × C (electrolytics are ±20%), and you predicted the 220 µF time first.",
+   terms=["timeconst"],
+   code="void setup() {\n  Serial.begin(9600);\n  pinMode(8, OUTPUT);\n}\nvoid loop() {\n  digitalWrite(8, HIGH);               // charge\n  for (int i = 0; i < 300; i++) { Serial.println(analogRead(A0)); delay(100); }\n  digitalWrite(8, LOW);                // discharge\n  for (int i = 0; i < 300; i++) { Serial.println(analogRead(A0)); delay(100); }\n}"),
+ N("E20","elec",11,"Transistor switch",75,20,["E3","E18"],
+   "A pin can only supply about 20 mA. A transistor lets that small signal switch something hungrier: a bank of LEDs, a relay, later a motor or a fan. It's how every gadget drives real loads.",
+   ["The 2N3904 is an NPN transistor. A small current into its base (B) lets a much bigger current flow from collector (C) to emitter (E). Think of the base as a valve handle.",
+    "Low-side switch: the load sits between + and the collector, and the emitter goes to GND. Pin 9 drives the base through a 1 kΩ resistor: (5 − 0.7) ÷ 1,000 ≈ 4.3 mA, plenty to switch it fully on.",
+    "Part 1: four LEDs, each with its own 220 Ω resistor from the + rail, all ending at the collector. That's about 50 mA, more than a pin should give on its own. Blink it, then fade it with `analogWrite(9, value)`.",
+    "Part 2: the 5 V relay from your Elegoo kit. Its coil goes from 5 V to the collector. Across the coil goes a 1N4007 with its band toward 5 V. When the transistor switches off, the coil kicks back a voltage spike, and the diode gives it somewhere safe to go. That's a flyback diode. Without it, the spike slowly kills the transistor.",
+    "Never fade a relay with analogWrite. It's on or off: digitalWrite only.",
+    "Keep loads on a 2N3904 under 100 mA. Its PNP twin, the 2N3906, does the same job on the + side. The L293D chip from your kit's motor lesson is transistors and diodes like these packed into one chip."],
+   "Switch and fade a four-LED bank from pin 9 through the 2N3904, then swap the LEDs for the relay with its flyback diode and make it click once a second.",
+   "The LED bank fades smoothly, the relay clicks on time, and nothing gets warm.",
+   terms=["flyback"], needs=["kit-trans","kit-diode"],
+   code="void setup() { pinMode(9, OUTPUT); }\nvoid loop() {\n  for (int v = 0; v <= 255; v += 5) { analogWrite(9, v); delay(20); }   // fade up\n  for (int v = 255; v >= 0; v -= 5) { analogWrite(9, v); delay(20); }   // and down\n}"),
+ N("E21","elec",11,"I2C screens",60,20,["E5"],
+   "Your new OLEDs, and the wrist module's screen later, all talk I2C: two shared wires, and every device on them has its own address.",
+   ["SDA carries data and SCL carries the clock. On the UNO, SDA is A4 and SCL is A5 (also labelled on the two pins past AREF).",
+    "Wire the 0.96-inch OLED: VCC to 5V (the box says 3 to 5 V), GND to GND, SCL to A5, SDA to A4.",
+    "Run the scanner below first. It asks every address whether anything answers. Your OLED should report 0x3C.",
+    "Install Adafruit SSD1306 in Manage Libraries (choose Install all, so Adafruit GFX comes too). Open File > Examples > Adafruit SSD1306 > ssd1306_128x64_i2c, and change SCREEN_ADDRESS from 0x3D to 0x3C before uploading.",
+    "The UNO has only 2 KB of memory, and this screen's picture takes 1 KB of it. If it prints \"SSD1306 allocation failed\", the sketch ran out of memory. Wrapping fixed text as F(\"text\") keeps it out of memory.",
+    "The 0.91-inch OLED is 128 × 32 and also answers at 0x3C, so it can't share the wires with the 0.96-inch. Use one at a time, with the 128x32 example.",
+    "Turn your LCD1602 over. A small board with four pins (GND, VCC, SDA, SCL) on its back means it's I2C too: it joins the same two wires at 0x27 or 0x3F and uses the LiquidCrystal I2C library. Only the 16 pins along the top means it's the parallel kind from your kit's lesson 2.13."],
+   "Show your E5 light reading on the OLED as a big number with a bar graph under it. Stretch: put the LCD on the same two wires, if it's I2C, and show the same reading on both.",
+   "The scanner finds the screen, and the reading updates live as you cover the sensor.",
+   terms=["i2c"], needs=["oled"],
+   code="#include <Wire.h>\nvoid setup() {\n  Wire.begin();\n  Serial.begin(9600);\n  for (byte a = 1; a < 127; a++) {\n    Wire.beginTransmission(a);\n    if (Wire.endTransmission() == 0) { Serial.print(\"found 0x\"); Serial.println(a, HEX); }\n  }\n  Serial.println(\"scan done\");\n}\nvoid loop() {}"),
+ N("E22","elec",11,"Meet the Pico 2",60,20,["L7"],
+   "Raspberry Pi's own microcontroller. It runs MicroPython, the same Python as L7 but on a $7 board, programmed straight from Secundus.",
+   ["The Pico 2's chip is the RP2350. Like the ESP32, its pins run at 3.3 V: never feed them 5 V.",
+    "On Secundus, download the Pico 2 firmware (the .uf2 file for RPI_PICO2, not the W) from the MicroPython link below.",
+    "Hold the white BOOTSEL button while you plug the Pico into Secundus with a micro-USB cable. It must be a data cable; charge-only ones don't work. A drive called RP2350 appears. Drag the .uf2 onto it, and the Pico restarts running MicroPython.",
+    "Open Thonny (Menu > Programming). Bottom right, click the interpreter name and pick MicroPython (Raspberry Pi Pico). The Shell at the bottom now runs on the Pico itself: type `print(2 + 2)` and it answers.",
+    "The program below blinks the onboard LED and reads the chip's built-in temperature sensor. Save it to the Pico as main.py and it runs on its own whenever it gets power, with no Pi attached.",
+    "Its pins have no headers yet. To plug it into the breadboard, solder on two 20-pin header strips (about $2 if none came with it): good practice after E7.",
+    "Its `print` lines show up on Secundus as /dev/ttyACM0, so your E6 logger can record a Pico the same way it records the UNO."],
+   "Blink the onboard LED, print the chip temperature in Thonny, save it as main.py, then run the Pico from a phone charger and see the LED blink with no Pi attached.",
+   "The Pico blinks on its own power, and you've seen its temperature readings in Thonny.",
+   terms=["micropython","uf2"], needs=["pico2"],
+   code="from machine import Pin, ADC\nimport time\nled = Pin(\"LED\", Pin.OUT)\nsensor = ADC(4)                      # the chip's own temperature sensor\nwhile True:\n    led.toggle()\n    volts = sensor.read_u16() * 3.3 / 65535\n    temp = 27 - (volts - 0.706) / 0.001721\n    print(round(temp, 1))\n    time.sleep(1)",
+   links=[["MicroPython for Pico 2", "https://micropython.org/download/RPI_PICO2/"]]),
+ N("E23","elec",11,"Touch status screen",90,25,["E10","E6"],
+   "Until the 7-inch exists, one of your ELEGOO 2.8-inch boards can be the deck's status screen. It's an ESP32 with a touchscreen built on, so there's no wiring at all.",
+   ["Each board is an ESP32 with a 240 × 320 colour touchscreen (ILI9341 driver), a microSD slot, and plugs for a speaker and a battery.",
+    "Set it up with ELEGOO's own tutorial (link below) and download their code package. Their copy of the TFT_eSPI library comes already set for this board, which saves an hour of editing setup files. Run their demo first to prove the screen and touch work.",
+    "The plan is E17 again, on a bigger screen. Secundus sends one short line every 5 seconds over USB, like `STAT|54.2|0.31|19:42` (temperature, load, time). The ESP32 splits it at the `|` marks and draws each value big.",
+    "Plugged into the Pi, it shows up as /dev/ttyUSB0 or /dev/ttyACM0. Check with `ls /dev/tty*` before and after plugging it in.",
+    "Opening the port restarts the ESP32, so the Pi script waits 2 seconds before sending anything.",
+    "On the ESP32 side, `Serial.readStringUntil('\\n')` reads one line, and `tft.drawString()` draws text. Write the sketch with the tutor; ask it for hints first.",
+    "The second board is for later: a bench clock, forge temperatures, or the wrist bridge's screen."],
+   "Run ELEGOO's demo, then show Secundus's temperature, load and the time on the touch screen, updating every 5 seconds. Stretch: tap the screen to send TAP back to the Pi and print it.",
+   "The screen shows live numbers from Secundus that change as the Pi works harder.",
+   needs=["esp32disp"],
+   code="import serial, time, os, subprocess\nport = serial.Serial(\"/dev/ttyUSB0\", 115200)\ntime.sleep(2)                        # the ESP32 restarts when the port opens\nwhile True:\n    t = subprocess.run([\"vcgencmd\", \"measure_temp\"], capture_output=True, text=True).stdout\n    temp = t.strip().replace(\"temp=\", \"\").replace(\"'C\", \"\")\n    load = os.getloadavg()[0]\n    port.write(f\"STAT|{temp}|{load:.2f}|{time.strftime('%H:%M')}\\n\".encode())\n    time.sleep(5)",
+   links=[["ELEGOO ESP32 2.8-inch display setup", "https://wiki.elegoo.com/en/oshw-parts-&-accessories/esp32-dispaly-setup"]]),
+ N("E24","elec",11,"Off the breadboard",120,25,["E7","E20"],
+   "Breadboard circuits fall apart in a pack. Perfboard is the same circuit, soldered for good. It's how gadgets survive the field and the shop.",
+   ["The ELEGOO boards are perfboard: plated holes, each one on its own. Unlike a breadboard, nothing is joined in rows. You make every connection with wire or a solder bridge.",
+    "Plan it on paper first: where each part sits, then each wire. Copy your E20 LED bank: four LEDs with their 220 Ω resistors, the 2N3904, its 1 kΩ base resistor, and a 100 nF ceramic across + and GND.",
+    "The solid-core wire is right for this. It holds its shape and lies flat. Strip about 5 mm, bend it through, solder both ends. Stranded wire is for things that flex.",
+    "Use the transistor's E, B, C order from E18. Soldered in wrong, it's a desoldering job.",
+    "Leave three solid-core tails, red for 5V, black for GND and yellow for the signal. Solid core plugs straight into the UNO's headers.",
+    "Check every joint with your phone camera zoomed in before you power it: shiny cones, no bridges where there shouldn't be any."],
+   "Build the E20 LED bank on perfboard with three wire tails, plug it into the UNO, and run the fade sketch.",
+   "The perfboard version fades exactly like the breadboard one, and a photo of both sides is in the Field log.",
+   terms=["perfboard"], needs=["pcb","wire"]),
 ]
 
 parts = [
@@ -300,13 +396,36 @@ parts = [
  {"id": "speaker", "short": "speaker", "phase": 8, "name": "Small speaker, 3 W 4 Ω", "price": 6, "approx": True, "where": "PiShop.ca or Amazon.ca"},
  {"id": "xiao", "short": "XIAO ESP32-S3", "phase": 9, "name": "Seeed XIAO ESP32-S3", "price": 15, "approx": True, "where": "PiShop.ca or Amazon.ca", "note": "Thumb-sized ESP32 with Bluetooth and a battery charger built in."},
  {"id": "imu", "short": "motion sensor", "phase": 9, "name": "MPU-6050 motion sensor board", "price": 6, "approx": True, "where": "Amazon.ca"},
- {"id": "oled", "short": "OLED screen", "phase": 9, "name": "0.96-inch SSD1306 OLED, I2C", "price": 8, "approx": True, "where": "Amazon.ca"},
+ {"id": "oled", "short": "0.96-inch OLEDs", "phase": 9, "name": "0.96-inch SSD1306 OLED, I2C (ELEGOO 3-pack)", "price": None, "where": "Already have it", "dflt": "arrived", "note": "Used first in E21, then on the wrist in E13."},
  {"id": "lipo", "short": "LiPo battery", "phase": 9, "name": "Protected LiPo battery, 400 to 500 mAh", "price": 12, "approx": True, "where": "PiShop.ca or Amazon.ca", "note": "Get one with a protection board."},
  {"id": "oled127", "short": "1.27-inch OLED", "phase": 10, "name": "Waveshare 1.27inch RGB OLED module (SSD1351, 128 × 96)", "price": None, "where": "Already have it", "dflt": "arrived", "note": "SPI colour OLED; the bedside screen in E17."},
+ {"id": "kit-res", "short": "resistor kit", "phase": 11, "name": "Metal film resistor kit, 600 pcs, 30 values 10 Ω to 1 MΩ", "price": None, "where": "Already have it", "dflt": "arrived", "note": "1/4 W, 1%."},
+ {"id": "kit-led", "short": "3 mm LED kit", "phase": 11, "name": "3 mm LED kit, 100 pcs: red, green, blue, white, yellow", "price": None, "where": "Already have it", "dflt": "arrived"},
+ {"id": "kit-diode", "short": "diode kit", "phase": 11, "name": "Diode kit, 100 pcs: 1N4148, 1N4007, 1N5819, 1N5399, FR107, FR207, 1N5408, 1N5822", "price": None, "where": "Already have it", "dflt": "arrived"},
+ {"id": "kit-ecap", "short": "electrolytic kit", "phase": 11, "name": "Electrolytic capacitor kit, 120 pcs, 0.22 µF to 470 µF", "price": None, "where": "Already have it", "dflt": "arrived", "note": "16 V and 50 V."},
+ {"id": "kit-ccap", "short": "ceramic cap kit", "phase": 11, "name": "Ceramic capacitor kit, 300 pcs, 2 pF to 100 nF", "price": None, "where": "Already have it", "dflt": "arrived"},
+ {"id": "kit-trans", "short": "transistor kit", "phase": 11, "name": "Transistor kit, 170 pcs, 17 types (2N3904, 2N3906, S8050, S8550 and more)", "price": None, "where": "Already have it", "dflt": "arrived"},
+ {"id": "wire", "short": "solid-core wire", "phase": 11, "name": "Solid-core hookup wire, UL1007, 6 colours", "price": None, "where": "Already have it", "dflt": "arrived"},
+ {"id": "pcb", "short": "perfboard kit", "phase": 11, "name": "ELEGOO double-sided PCB (perfboard) kit, 5 sizes", "price": None, "where": "Already have it", "dflt": "arrived"},
+ {"id": "pico2", "short": "Pico 2 ×2", "phase": 11, "name": "Raspberry Pi Pico 2 ×2", "price": None, "where": "Already have it", "dflt": "arrived", "note": "No headers. Needs a micro-USB data cable."},
+ {"id": "esp32disp", "short": "ESP32 touch screens", "phase": 11, "name": "ELEGOO 2.8-inch ESP32 touch display ×2 (240 × 320)", "price": None, "where": "Already have it", "dflt": "arrived"},
+ {"id": "oled91", "short": "0.91-inch OLED", "phase": 11, "name": "0.91-inch OLED, 128 × 32, I2C", "price": None, "where": "Already have it", "dflt": "arrived"},
+ {"id": "lcd2", "short": "spare LCD1602", "phase": 11, "name": "LCD1602 screen (spare)", "price": None, "where": "Already have it", "dflt": "arrived", "note": "Check the back for an I2C board (E21)."},
+ {"id": "sd128", "short": "128 GB card", "phase": 4, "name": "SanDisk Extreme 128 GB microSD", "price": None, "where": "Already have it", "dflt": "arrived", "note": "For the L8 rebuild; keep the original card as a spare."},
+ {"id": "cardreader", "short": "card reader", "phase": 4, "name": "USB-C / USB-A SD and microSD card reader", "price": None, "where": "Already have it", "dflt": "arrived"},
+ {"id": "tp4056", "short": "USB-C chargers", "phase": 0, "name": "USB-C single-cell lithium charger boards ×3 (TP4056 type)", "price": None, "where": "Already have it", "dflt": "arrived", "note": "Gadget add-on for later. Read the Safety page before using one with a cell."},
  {"id": "projector", "short": "projector", "phase": 0, "name": "Pocket HDMI projector (later add-on)", "price": 200, "approx": True, "where": "Later", "note": "Runs off the Pi 5's second video port. On your ideas list for later."},
 ]
 
 terms = [
+ ["capacitor","Capacitor","Stores charge like a small tank. Electrolytics (cans) have a + and − side; ceramics (beads) don't. 104 means 100 nF.","E18"],
+ ["diode","Diode","Lets current through one way only. The band marks the cathode (−) end.","E18"],
+ ["transistor","Transistor","A small current into the base switches a bigger one between collector and emitter. NPN switches the − side, PNP the + side.","E18"],
+ ["timeconst","Time constant (RC)","R × C in seconds: how long a capacitor takes to reach 63% through a resistor. Five of them and it's full.","E19"],
+ ["flyback","Flyback diode","A diode across a coil (relay or motor) that gives its switch-off spike a safe path instead of the transistor.","E20"],
+ ["micropython","MicroPython","Python made small enough to run on a microcontroller like the Pico 2.","E22"],
+ ["uf2","UF2","A firmware file you drag onto a board's USB drive to install it, as with MicroPython on the Pico.","E22"],
+ ["perfboard","Perfboard","Board full of separate plated holes. You solder parts in and join them with wire: a breadboard circuit made permanent.","E24"],
  ["protocol","Protocol","An agreed message format two programs use to talk, like the Pi's AUR|...|... lines to the UNO.","E17"],
  ["spi","SPI","A fast wired link for screens and chips: a clock wire, a data wire and a chip-select that picks which device listens.","E17"],
  ["debounce","Debounce","Ignoring the few milliseconds of flicker when a button's contacts bounce, so one press counts once.","E17"],
@@ -331,13 +450,15 @@ terms = [
  ["gesture","Gesture","A movement or hand shape the software recognizes and turns into a command.","L13"],
  ["i2s","I2S","A way of sending digital audio between chips, used by the deck's speaker amp.","E11"],
  ["imu","IMU","Inertial measurement unit: a motion sensor measuring acceleration and rotation.","E12"],
- ["i2c","I2C","A two-wire connection (SDA and SCL) that lets several small devices share the same pins.","E12"],
+ ["i2c","I2C","A two-wire connection (SDA and SCL) that lets several small devices share the same pins. Each device answers at its own address, like 0x3C.","E21"],
  ["ble","BLE","Bluetooth Low Energy: short-range, low-power wireless for small devices.","E14"],
  ["lipo","LiPo","Lithium-polymer pouch battery. Light and flat, and must never be punctured or crushed.","E15"],
  ["callsign","Callsigns","MFOB (Murph FOB) is the whole home setup. Its stations take Latin ordinals: the MacBook server is Primus Station (hostname primus-station), the deck is Secundus Station (secundus-station), the next box Tertius Station. On air: \"Primus Station, this is Secundus Station.\"","B3"],
 ]
 
-commands = [["Aurelia", [
+commands = [["Bench school", [
+ ["thonny","Open Thonny for the Pico 2","E22"]]],
+ ["Aurelia", [
  ["python3 ~/secundus-ai/secundus_ai.py","Start the Aurelia web page (port 8080)","E17"],
  ["python3 ~/secundus-ai/aurelia_oled.py --serial","Run the bedside screen through the UNO","E17"],
  ["sudo systemctl restart secundus-ai aurelia-oled","Restart the web page and bedside screen","E17"]]],
@@ -364,9 +485,10 @@ safety = [
  ["MFOB battery","A laptop plugged in around the clock can swell its battery. Keep the 80% charge cap on, and check monthly for a bulging bottom case or lifted trackpad."],
 ]
 
-js = "/* Generated by scripts/make-ext.py: MFOB (base station), Jarvis, Wrist module, Aurelia. */\n(function () {\n"
+js = "/* Generated by scripts/make-ext.py: MFOB (base station), Jarvis, Wrist module, Aurelia, Bench school. */\n(function () {\n"
 js += "BRANCHES.push(...%s);\n" % json.dumps(branches, ensure_ascii=False)
 js += "PHASES.push(...%s);\n" % json.dumps(phases, ensure_ascii=False)
+js += "PHASES.unshift(...%s);\n" % json.dumps(front_phases, ensure_ascii=False)
 js += "NODES.push(...%s);\n" % json.dumps(nodes, ensure_ascii=False, indent=0)
 js += "PARTS.push(...%s);\n" % json.dumps(parts, ensure_ascii=False)
 js += "%s.forEach(([id, t, d, from]) => TERMS.push({ id, t, d, from }));\n" % json.dumps(terms, ensure_ascii=False)
